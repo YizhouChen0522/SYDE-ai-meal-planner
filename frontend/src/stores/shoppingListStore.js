@@ -6,6 +6,7 @@ const SHOPPING_LIST_KEY = 'syde-shopping-list'
 const normalizeName = (name) => name.trim().toLowerCase()
 const getKey = (name, unit) => `${normalizeName(name)}|${unit.trim().toLowerCase()}`
 const roundQuantity = (value) => Number(value.toFixed(2))
+const createShoppingListId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
 const addQuantityToMap = (map, item) => {
   const key = getKey(item.name, item.unit)
@@ -33,6 +34,29 @@ const readSavedShoppingList = () => {
   }
 }
 
+const cleanShoppingListItems = (shoppingListItems) => {
+  const usedIds = new Set()
+
+  return shoppingListItems.map((item) => {
+    let itemId = item.id
+
+    if (!itemId || usedIds.has(itemId)) {
+      itemId = createShoppingListId()
+    }
+
+    usedIds.add(itemId)
+
+    return {
+      id: itemId,
+      name: item.name || '',
+      requiredQuantity: Number(item.requiredQuantity) || 0,
+      availableFromInventory: Number(item.availableFromInventory) || 0,
+      quantityToBuy: Number(item.quantityToBuy) || 0,
+      unit: item.unit || '',
+    }
+  })
+}
+
 export const useShoppingListStore = defineStore('shoppingList', () => {
   const items = ref([])
 
@@ -41,7 +65,8 @@ export const useShoppingListStore = defineStore('shoppingList', () => {
   }
 
   const loadShoppingListFromStorage = () => {
-    items.value = readSavedShoppingList()
+    items.value = cleanShoppingListItems(readSavedShoppingList())
+    saveShoppingList()
   }
 
   const generateShoppingList = (recipes, inventoryItems) => {
@@ -54,7 +79,7 @@ export const useShoppingListStore = defineStore('shoppingList', () => {
 
     inventoryItems.forEach((item) => addQuantityToMap(inventoryMap, item))
 
-    items.value = Array.from(requiredMap.entries())
+    const newItems = Array.from(requiredMap.entries())
       .map(([key, requiredItem]) => {
         const availableFromInventory = inventoryMap.get(key)?.quantity || 0
         const quantityToBuy = roundQuantity(
@@ -62,7 +87,7 @@ export const useShoppingListStore = defineStore('shoppingList', () => {
         )
 
         return {
-          id: key,
+          id: createShoppingListId(),
           name: requiredItem.name,
           requiredQuantity: roundQuantity(requiredItem.quantity),
           availableFromInventory: roundQuantity(availableFromInventory),
@@ -72,12 +97,41 @@ export const useShoppingListStore = defineStore('shoppingList', () => {
       })
       .filter((item) => item.quantityToBuy > 0)
 
+    newItems.forEach((newItem) => {
+      const matchingItem = items.value.find(
+        (item) => normalizeName(item.name) === normalizeName(newItem.name) && item.unit === newItem.unit,
+      )
+
+      if (matchingItem) {
+        matchingItem.requiredQuantity = roundQuantity(
+          matchingItem.requiredQuantity + newItem.requiredQuantity,
+        )
+        matchingItem.availableFromInventory = newItem.availableFromInventory
+        matchingItem.quantityToBuy = roundQuantity(matchingItem.quantityToBuy + newItem.quantityToBuy)
+        return
+      }
+
+      items.value.push(newItem)
+    })
+
+    saveShoppingList()
+  }
+
+  const removeShoppingListItem = (itemId) => {
+    items.value = items.value.filter((item) => item.id !== itemId)
+    saveShoppingList()
+  }
+
+  const clearShoppingList = () => {
+    items.value = []
     saveShoppingList()
   }
 
   return {
     items,
+    clearShoppingList,
     generateShoppingList,
     loadShoppingListFromStorage,
+    removeShoppingListItem,
   }
 })

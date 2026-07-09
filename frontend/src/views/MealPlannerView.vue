@@ -16,12 +16,12 @@ const mealPlanStore = useMealPlanStore()
 const shoppingListStore = useShoppingListStore()
 
 inventoryStore.loadInventoryFromStorage()
+shoppingListStore.loadShoppingListFromStorage()
 
 const newInventoryItem = reactive({
   name: '',
   quantity: 1,
   unit: 'kg',
-  note: '',
 })
 
 const mockRecipes = [
@@ -257,7 +257,6 @@ const addItemToInventory = () => {
   newInventoryItem.name = ''
   newInventoryItem.quantity = 1
   newInventoryItem.unit = 'kg'
-  newInventoryItem.note = ''
 }
 
 const confirmMealPlan = () => {
@@ -331,9 +330,6 @@ const confirmMealPlan = () => {
             </el-select>
           </el-form-item>
 
-          <el-form-item label="Note">
-            <el-input v-model="newInventoryItem.note" placeholder="Optional note" />
-          </el-form-item>
         </div>
 
         <el-button type="primary" native-type="submit">Add to Inventory</el-button>

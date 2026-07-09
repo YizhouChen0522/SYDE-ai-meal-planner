@@ -132,7 +132,6 @@ const deleteItem = (item) => {
             <el-button type="danger" plain @click="deleteItem(row)">Delete</el-button>
           </template>
         </el-table-column>
-        <el-table-column prop="note" label="Note" min-width="150" />
       </el-table>
     </el-card>
   </section>

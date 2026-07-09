@@ -10,7 +10,6 @@ const mockItems = [
     quantity: 1,
     unit: 'kg',
     addedDate: '2026-06-01',
-    note: 'Bought outside the system',
   },
   {
     id: 'mock-chicken-breast',
@@ -18,7 +17,6 @@ const mockItems = [
     quantity: 0.8,
     unit: 'kg',
     addedDate: '2026-06-10',
-    note: '',
   },
 ]
 
@@ -35,6 +33,8 @@ const readInventory = () => {
 const getToday = () => new Date().toISOString().slice(0, 10)
 
 const createInventoryId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+const normalizeName = (name) => name.trim().toLowerCase()
+const roundQuantity = (value) => Number(value.toFixed(2))
 
 const cleanInventoryItems = (inventoryItems) => {
   const usedIds = new Set()
@@ -54,7 +54,6 @@ const cleanInventoryItems = (inventoryItems) => {
       quantity: Number(item.quantity) || 0,
       unit: item.unit || '',
       addedDate: item.addedDate || getToday(),
-      note: item.note || '',
     }
   })
 }
@@ -78,9 +77,24 @@ export const useInventoryStore = defineStore('inventory', () => {
       quantity: Number(form.quantity),
       unit: form.unit,
       addedDate: form.addedDate || getToday(),
-      note: (form.note || '').trim(),
     })
     saveInventory()
+  }
+
+  const addOrMergeItem = (form) => {
+    const itemName = form.name.trim()
+    const itemUnit = form.unit
+    const matchingItem = items.value.find(
+      (item) => normalizeName(item.name) === normalizeName(itemName) && item.unit === itemUnit,
+    )
+
+    if (matchingItem) {
+      matchingItem.quantity = roundQuantity(matchingItem.quantity + Number(form.quantity))
+      saveInventory()
+      return
+    }
+
+    addItem(form)
   }
 
   const removeItem = (itemId) => {
@@ -116,6 +130,7 @@ export const useInventoryStore = defineStore('inventory', () => {
   return {
     items,
     addItem,
+    addOrMergeItem,
     applyConsumption,
     createInventoryId,
     removeItem,

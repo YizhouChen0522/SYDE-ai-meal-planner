@@ -21,17 +21,22 @@ const placeMockOrder = () => {
   }
 
   shoppingListStore.items.forEach((item) => {
-    inventoryStore.addItem({
+    inventoryStore.addOrMergeItem({
       id: inventoryStore.createInventoryId(),
       name: item.name,
       quantity: item.quantityToBuy,
       unit: item.unit,
-      note: 'Added from mock shopping list order',
     })
   })
 
+  shoppingListStore.clearShoppingList()
   ElMessage.success('Mock order placed. Items were added to inventory.')
   router.push('/inventory')
+}
+
+const removeShoppingListItem = (item) => {
+  shoppingListStore.removeShoppingListItem(item.id)
+  ElMessage.success(`${item.name} removed from shopping list.`)
 }
 </script>
 
@@ -51,9 +56,14 @@ const placeMockOrder = () => {
       <el-table :data="shoppingListStore.items" empty-text="No shopping list items yet." class="inventory-table">
         <el-table-column prop="name" label="Ingredient name" min-width="160" />
         <el-table-column prop="requiredQuantity" label="Required quantity" min-width="150" />
-        <el-table-column prop="availableFromInventory" label="Available from virtual inventory" min-width="210" />
+        <el-table-column prop="availableFromInventory" label="Available from Inventory" min-width="190" />
         <el-table-column prop="quantityToBuy" label="Quantity to buy" min-width="150" />
         <el-table-column prop="unit" label="Unit" min-width="90" />
+        <el-table-column label="Delete" min-width="100">
+          <template #default="{ row }">
+            <el-button type="danger" plain @click="removeShoppingListItem(row)">Delete</el-button>
+          </template>
+        </el-table-column>
       </el-table>
 
       <div class="planner-actions">
