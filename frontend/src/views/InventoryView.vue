@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, watchEffect } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useInventoryStore } from '../stores/inventoryStore'
 
@@ -8,14 +8,6 @@ const inventoryStore = useInventoryStore()
 inventoryStore.loadInventoryFromStorage()
 
 const consumeSelections = reactive({})
-
-const newItem = reactive({
-  name: '',
-  quantity: 1,
-  unit: 'kg',
-  category: '',
-  note: '',
-})
 
 const getDaysStored = (addedDate) => {
   const added = new Date(`${addedDate}T00:00:00`)
@@ -33,6 +25,14 @@ const inventoryRows = computed(() =>
   })),
 )
 
+watchEffect(() => {
+  inventoryStore.items.forEach((item) => {
+    if (consumeSelections[item.id] === undefined) {
+      consumeSelections[item.id] = 0
+    }
+  })
+})
+
 const getWarningType = (daysStored) => {
   if (daysStored >= 14) {
     return 'danger'
@@ -47,7 +47,7 @@ const getWarningType = (daysStored) => {
 
 const getWarningText = (daysStored) => {
   if (daysStored >= 14) {
-    return `Stored for ${daysStored} days. Use soon.`
+    return `Stored for ${daysStored} days`
   }
 
   if (daysStored >= 7) {
@@ -58,20 +58,21 @@ const getWarningText = (daysStored) => {
 }
 
 const applyConsumption = (item) => {
-  const percent = consumeSelections[item.id] || 25
+  const percent = consumeSelections[item.id] || 0
+
+  if (percent <= 0) {
+    ElMessage.warning('Please select a percentage greater than 0.')
+    return
+  }
+
   inventoryStore.applyConsumption(item.id, percent)
   ElMessage.success(`${percent}% of ${item.name} marked as consumed.`)
+  consumeSelections[item.id] = 0
 }
 
-const addManualItem = () => {
-  inventoryStore.addItem(newItem)
-  ElMessage.success('Inventory item added.')
-
-  newItem.name = ''
-  newItem.quantity = 1
-  newItem.unit = 'kg'
-  newItem.category = ''
-  newItem.note = ''
+const deleteItem = (item) => {
+  inventoryStore.removeItem(item.id)
+  ElMessage.success(`${item.name} removed from inventory.`)
 }
 </script>
 
@@ -83,53 +84,6 @@ const addManualItem = () => {
       <p>Track mock fridge and pantry items so future meal plans can use what you already have.</p>
     </div>
 
-    <el-card class="page-card inventory-form-card" shadow="never">
-      <template #header>
-        <h2>Add Item</h2>
-      </template>
-
-      <el-form label-position="top" @submit.prevent="addManualItem">
-        <div class="form-grid">
-          <el-form-item label="Food name" required>
-            <el-input v-model="newItem.name" placeholder="Eggs" required />
-          </el-form-item>
-
-          <el-form-item label="Quantity" required>
-            <el-input-number v-model="newItem.quantity" :min="0" :step="0.1" :precision="2" required />
-          </el-form-item>
-
-          <el-form-item label="Unit" required>
-            <el-select v-model="newItem.unit" placeholder="Select unit">
-              <el-option label="kg" value="kg" />
-              <el-option label="g" value="g" />
-              <el-option label="lb" value="lb" />
-              <el-option label="pcs" value="pcs" />
-              <el-option label="cups" value="cups" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="Category" required>
-            <el-select v-model="newItem.category" placeholder="Select category">
-              <el-option label="Vegetable" value="Vegetable" />
-              <el-option label="Fruit" value="Fruit" />
-              <el-option label="Protein" value="Protein" />
-              <el-option label="Grain" value="Grain" />
-              <el-option label="Dairy" value="Dairy" />
-              <el-option label="Pantry" value="Pantry" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="Note">
-            <el-input v-model="newItem.note" placeholder="Optional note" />
-          </el-form-item>
-        </div>
-
-        <el-button type="primary" native-type="submit" :disabled="!newItem.name || !newItem.category">
-          Add to Inventory
-        </el-button>
-      </el-form>
-    </el-card>
-
     <el-card class="page-card inventory-table-card" shadow="never">
       <template #header>
         <h2>Current Items</h2>
@@ -137,32 +91,46 @@ const addManualItem = () => {
 
       <el-table :data="inventoryRows" empty-text="No inventory items yet." class="inventory-table">
         <el-table-column prop="name" label="Food name" min-width="150" />
-        <el-table-column label="Quantity" min-width="120">
+        <el-table-column label="Quantity" min-width="90">
           <template #default="{ row }">
             {{ row.quantity }} {{ row.unit }}
           </template>
         </el-table-column>
-        <el-table-column prop="addedDate" label="Added date" min-width="125" />
-        <el-table-column prop="daysStored" label="Days stored" min-width="120" />
-        <el-table-column prop="category" label="Category" min-width="120" />
-        <el-table-column label="Storage reminder" min-width="220">
+        <el-table-column prop="addedDate" label="Added date" min-width="120" />
+        <el-table-column prop="daysStored" label="Days stored" min-width="60" />
+        <el-table-column prop="category" label="Category" min-width="100" />
+        <el-table-column label="Storage reminder" min-width="160">
           <template #default="{ row }">
             <el-tag :type="getWarningType(row.daysStored)">
               {{ getWarningText(row.daysStored) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Consume" min-width="230">
+        <el-table-column label="Consume" min-width="200">
           <template #default="{ row }">
             <div class="consume-controls">
-              <el-select v-model="consumeSelections[row.id]" placeholder="25%">
-                <el-option label="25%" :value="25" />
-                <el-option label="50%" :value="50" />
-                <el-option label="75%" :value="75" />
-                <el-option label="100%" :value="100" />
-              </el-select>
-              <el-button plain @click="applyConsumption(row)">Apply</el-button>
+              <el-slider
+                class="consume-slider"
+                :model-value="consumeSelections[row.id] ?? 0"
+                :min="0"
+                :max="100"
+                :step="1"
+                @update:model-value="value => (consumeSelections[row.id] = value)"
+              />
+
+              <span class="consume-percent">
+                {{ consumeSelections[row.id] ?? 0 }}%
+              </span>
+
+              <el-button plain @click="applyConsumption(row)">
+                Apply
+              </el-button>
             </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="Delete" min-width="100">
+          <template #default="{ row }">
+            <el-button type="danger" plain @click="deleteItem(row)">Delete</el-button>
           </template>
         </el-table-column>
         <el-table-column prop="note" label="Note" min-width="180" />

@@ -51,13 +51,18 @@ export const useInventoryStore = defineStore('inventory', () => {
   const addItem = (form) => {
     items.value.push({
       id: Date.now(),
-      name: form.name,
+      name: form.name.trim(),
       quantity: Number(form.quantity),
       unit: form.unit,
       addedDate: getToday(),
       category: form.category,
-      note: form.note,
+      note: (form.note || '').trim(),
     })
+    saveInventory()
+  }
+
+  const removeItem = (itemId) => {
+    items.value = items.value.filter((item) => item.id !== itemId)
     saveInventory()
   }
 
@@ -90,6 +95,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     items,
     addItem,
     applyConsumption,
+    removeItem,
     loadInventoryFromStorage,
   }
 })

@@ -223,18 +223,22 @@ li {
 
 .button-row,
 .planner-actions,
-.recipe-actions {
+.recipe-actions,
+.recipe-detail-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.planner-input {
+.planner-input,
+.planner-inventory-card {
   margin-bottom: 24px;
 }
 
-.inventory-form-card {
-  margin-bottom: 24px;
+.card-description {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
 .inventory-table {
@@ -243,9 +247,16 @@ li {
 
 .consume-controls {
   display: grid;
-  grid-template-columns: minmax(90px, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
   align-items: center;
+}
+
+.consume-label {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
 .recipe-grid {
@@ -281,9 +292,18 @@ li {
   padding-top: 20px;
 }
 
+.recipe-detail-actions {
+  margin-top: 18px;
+}
+
 .planner-actions {
   justify-content: flex-end;
   margin-top: 22px;
+}
+
+.dialog-list li,
+.nutrition-list p {
+  margin-bottom: 10px;
 }
 
 .el-button--primary {
