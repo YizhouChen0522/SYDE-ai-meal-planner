@@ -1,13 +1,17 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useInventoryStore } from '../stores/inventoryStore'
+import { useShoppingListStore } from '../stores/shoppingListStore'
 
+const router = useRouter()
 const cravingText = ref('')
 const mealPlan = ref([])
 const selectedStepsRecipe = ref(null)
 const selectedNutritionRecipe = ref(null)
 const inventoryStore = useInventoryStore()
+const shoppingListStore = useShoppingListStore()
 
 inventoryStore.loadInventoryFromStorage()
 
@@ -15,7 +19,6 @@ const newInventoryItem = reactive({
   name: '',
   quantity: 1,
   unit: 'kg',
-  category: '',
   note: '',
 })
 
@@ -246,18 +249,12 @@ const addItemToInventory = () => {
     return
   }
 
-  if (!newInventoryItem.category) {
-    ElMessage.warning('Please select a category.')
-    return
-  }
-
   inventoryStore.addItem(newInventoryItem)
   ElMessage.success(`${newInventoryItem.name.trim()} added to inventory.`)
 
   newInventoryItem.name = ''
   newInventoryItem.quantity = 1
   newInventoryItem.unit = 'kg'
-  newInventoryItem.category = ''
   newInventoryItem.note = ''
 }
 
@@ -271,8 +268,10 @@ const confirmMealPlan = () => {
   }
 
   localStorage.setItem('currentMealPlanDraft', JSON.stringify(mealPlanDraft))
+  shoppingListStore.generateShoppingList(mealPlan.value, inventoryStore.items)
   console.log('Confirmed meal plan draft:', mealPlanDraft)
-  ElMessage.success('Meal plan draft saved for this prototype.')
+  ElMessage.success('Meal plan confirmed. Shopping list generated.')
+  router.push('/shopping-list')
 }
 </script>
 
@@ -330,17 +329,6 @@ const confirmMealPlan = () => {
               <el-option label="piece" value="piece" />
               <el-option label="pieces" value="pieces" />
               <el-option label="cups" value="cups" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="Category" required>
-            <el-select v-model="newInventoryItem.category" placeholder="Select category">
-              <el-option label="Vegetable" value="Vegetable" />
-              <el-option label="Fruit" value="Fruit" />
-              <el-option label="Protein" value="Protein" />
-              <el-option label="Grain" value="Grain" />
-              <el-option label="Dairy" value="Dairy" />
-              <el-option label="Pantry" value="Pantry" />
             </el-select>
           </el-form-item>
 

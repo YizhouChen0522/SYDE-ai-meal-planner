@@ -4,6 +4,7 @@ import RegisterView from '../views/RegisterView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import MealPlannerView from '../views/MealPlannerView.vue'
 import InventoryView from '../views/InventoryView.vue'
+import ShoppingListView from '../views/ShoppingListView.vue'
 import HistoryView from '../views/HistoryView.vue'
 import { useAuthStore } from '../stores/authStore'
 
@@ -37,6 +38,11 @@ const router = createRouter({
     {
       path: '/inventory',
       component: InventoryView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/shopping-list',
+      component: ShoppingListView,
       meta: { requiresAuth: true },
     },
     {

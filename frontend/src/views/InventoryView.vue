@@ -90,15 +90,14 @@ const deleteItem = (item) => {
       </template>
 
       <el-table :data="inventoryRows" empty-text="No inventory items yet." class="inventory-table">
-        <el-table-column prop="name" label="Food name" min-width="150" />
+        <el-table-column prop="name" label="Food name" min-width="120" />
         <el-table-column label="Quantity" min-width="90">
           <template #default="{ row }">
             {{ row.quantity }} {{ row.unit }}
           </template>
         </el-table-column>
         <el-table-column prop="addedDate" label="Added date" min-width="120" />
-        <el-table-column prop="daysStored" label="Days stored" min-width="60" />
-        <el-table-column prop="category" label="Category" min-width="100" />
+        <el-table-column prop="daysStored" label="Days stored" min-width="70" />
         <el-table-column label="Storage reminder" min-width="160">
           <template #default="{ row }">
             <el-tag :type="getWarningType(row.daysStored)">
@@ -133,7 +132,7 @@ const deleteItem = (item) => {
             <el-button type="danger" plain @click="deleteItem(row)">Delete</el-button>
           </template>
         </el-table-column>
-        <el-table-column prop="note" label="Note" min-width="180" />
+        <el-table-column prop="note" label="Note" min-width="150" />
       </el-table>
     </el-card>
   </section>

@@ -26,6 +26,7 @@ const handleLogout = () => {
           <router-link to="/planner">Meal Planner</router-link>
           <router-link to="/profile">Profile</router-link>
           <router-link to="/inventory">Inventory</router-link>
+          <router-link to="/shopping-list">Shopping List</router-link>
           <router-link to="/history">History</router-link>
           <el-button link class="nav-button" @click="handleLogout">Sign Out</el-button>
         </template>

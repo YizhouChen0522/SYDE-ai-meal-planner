@@ -5,21 +5,19 @@ const INVENTORY_KEY = 'syde-inventory-items'
 
 const mockItems = [
   {
-    id: 1,
+    id: 'mock-chili',
     name: 'Chili',
     quantity: 1,
     unit: 'kg',
     addedDate: '2026-06-01',
-    category: 'Vegetable',
     note: 'Bought outside the system',
   },
   {
-    id: 2,
+    id: 'mock-chicken-breast',
     name: 'Chicken breast',
     quantity: 0.8,
     unit: 'kg',
     addedDate: '2026-06-10',
-    category: 'Protein',
     note: '',
   },
 ]
@@ -36,6 +34,31 @@ const readInventory = () => {
 
 const getToday = () => new Date().toISOString().slice(0, 10)
 
+const createInventoryId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+const cleanInventoryItems = (inventoryItems) => {
+  const usedIds = new Set()
+
+  return inventoryItems.map((item) => {
+    let itemId = item.id
+
+    if (!itemId || usedIds.has(itemId)) {
+      itemId = createInventoryId()
+    }
+
+    usedIds.add(itemId)
+
+    return {
+      id: itemId,
+      name: item.name || '',
+      quantity: Number(item.quantity) || 0,
+      unit: item.unit || '',
+      addedDate: item.addedDate || getToday(),
+      note: item.note || '',
+    }
+  })
+}
+
 export const useInventoryStore = defineStore('inventory', () => {
   const items = ref([])
 
@@ -44,18 +67,17 @@ export const useInventoryStore = defineStore('inventory', () => {
   }
 
   const loadInventoryFromStorage = () => {
-    items.value = readInventory()
+    items.value = cleanInventoryItems(readInventory())
     saveInventory()
   }
 
   const addItem = (form) => {
     items.value.push({
-      id: Date.now(),
+      id: form.id || createInventoryId(),
       name: form.name.trim(),
       quantity: Number(form.quantity),
       unit: form.unit,
-      addedDate: getToday(),
-      category: form.category,
+      addedDate: form.addedDate || getToday(),
       note: (form.note || '').trim(),
     })
     saveInventory()
@@ -95,6 +117,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     items,
     addItem,
     applyConsumption,
+    createInventoryId,
     removeItem,
     loadInventoryFromStorage,
   }
