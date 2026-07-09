@@ -306,6 +306,33 @@ li {
   margin-bottom: 10px;
 }
 
+.history-list {
+  display: grid;
+  gap: 18px;
+}
+
+.history-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.history-card-header p,
+.muted-text {
+  margin-top: 8px;
+  color: var(--text-muted);
+}
+
+.history-section {
+  margin-bottom: 20px;
+}
+
+.history-dialog-content {
+  display: grid;
+  gap: 22px;
+}
+
 .el-button--primary {
   --el-button-bg-color: var(--brand);
   --el-button-border-color: var(--brand);

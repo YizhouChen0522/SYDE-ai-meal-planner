@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useInventoryStore } from '../stores/inventoryStore'
+import { useMealPlanStore } from '../stores/mealPlanStore'
 import { useShoppingListStore } from '../stores/shoppingListStore'
 
 const router = useRouter()
@@ -11,6 +12,7 @@ const mealPlan = ref([])
 const selectedStepsRecipe = ref(null)
 const selectedNutritionRecipe = ref(null)
 const inventoryStore = useInventoryStore()
+const mealPlanStore = useMealPlanStore()
 const shoppingListStore = useShoppingListStore()
 
 inventoryStore.loadInventoryFromStorage()
@@ -259,17 +261,14 @@ const addItemToInventory = () => {
 }
 
 const confirmMealPlan = () => {
-  const mealPlanDraft = {
-    inputs: {
-      desiredFood: cravingText.value,
-    },
-    recipes: mealPlan.value,
-    savedAt: new Date().toISOString(),
-  }
-
-  localStorage.setItem('currentMealPlanDraft', JSON.stringify(mealPlanDraft))
   shoppingListStore.generateShoppingList(mealPlan.value, inventoryStore.items)
-  console.log('Confirmed meal plan draft:', mealPlanDraft)
+  mealPlanStore.confirmMealPlan({
+    desiredFoodInput: cravingText.value,
+    recipes: mealPlan.value,
+    shoppingListSnapshot: shoppingListStore.items,
+  })
+
+  console.log('Confirmed meal plan:', mealPlanStore.currentMealPlanDraft)
   ElMessage.success('Meal plan confirmed. Shopping list generated.')
   router.push('/shopping-list')
 }
