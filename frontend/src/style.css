@@ -233,6 +233,21 @@ li {
   margin-bottom: 24px;
 }
 
+.inventory-form-card {
+  margin-bottom: 24px;
+}
+
+.inventory-table {
+  width: 100%;
+}
+
+.consume-controls {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .recipe-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -302,5 +317,9 @@ li {
 
   .planner-actions {
     justify-content: flex-start;
+  }
+
+  .consume-controls {
+    grid-template-columns: 1fr;
   }
 }
