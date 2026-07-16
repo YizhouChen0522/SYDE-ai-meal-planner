@@ -45,7 +45,7 @@ const closeDialog = () => {
     </div>
 
     <el-empty v-if="!hasHistory" description="No confirmed meal plans yet.">
-      <el-button type="primary" @click="router.push('/planner')">Open Meal Planner</el-button>
+      <el-button type="primary" @click="router.push('/home')">Open Home</el-button>
     </el-empty>
 
     <div v-else class="history-list">

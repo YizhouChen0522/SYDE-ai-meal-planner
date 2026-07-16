@@ -13,7 +13,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/planner',
+      redirect: '/home',
     },
     {
       path: '/login',
@@ -31,9 +31,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/planner',
+      path: '/home',
       component: MealPlannerView,
       meta: { requiresAuth: true },
+    },
+    {
+      path: '/planner',
+      redirect: '/home',
     },
     {
       path: '/inventory',
@@ -62,7 +66,7 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.guestOnly && authStore.isAuthenticated) {
-    return '/planner'
+    return '/home'
   }
 
   return true

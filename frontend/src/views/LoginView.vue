@@ -15,7 +15,7 @@ const form = reactive({
 const handleLogin = () => {
   authStore.login(form)
   ElMessage.success('Login successful.')
-  router.push('/planner')
+  router.push('/home')
 }
 </script>
 

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, reactive, watchEffect } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useInventoryStore } from '../stores/inventoryStore'
 
 const inventoryStore = useInventoryStore()
@@ -74,6 +74,24 @@ const deleteItem = (item) => {
   inventoryStore.removeItem(item.id)
   ElMessage.success(`${item.name} removed from inventory.`)
 }
+
+const confirmDeleteItem = async (item) => {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to delete ${item.name} from your inventory?`,
+      'Confirm deletion',
+      {
+        confirmButtonText: 'Confirm',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+      },
+    )
+
+    deleteItem(item)
+  } catch (error) {
+    // User cancelled. Do nothing.
+  }
+}
 </script>
 
 <template>
@@ -129,7 +147,7 @@ const deleteItem = (item) => {
         </el-table-column>
         <el-table-column label="Delete" min-width="100">
           <template #default="{ row }">
-            <el-button type="danger" plain @click="deleteItem(row)">Delete</el-button>
+            <el-button type="danger" plain @click="confirmDeleteItem(row)">Delete</el-button>
           </template>
         </el-table-column>
       </el-table>

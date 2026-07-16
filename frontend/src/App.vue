@@ -16,14 +16,14 @@ const handleLogout = () => {
 <template>
   <el-container class="app-shell">
     <el-header class="top-nav">
-      <router-link class="brand" to="/planner">
+      <router-link class="brand" to="/home">
         <span class="brand-mark">SYDE660</span>
         <span>AI Meal Planner</span>
       </router-link>
 
       <nav class="nav-links" aria-label="Primary navigation">
         <template v-if="authStore.isAuthenticated">
-          <router-link to="/planner">Meal Planner</router-link>
+          <router-link to="/home">Home</router-link>
           <router-link to="/profile">Profile</router-link>
           <router-link to="/inventory">Inventory</router-link>
           <router-link to="/shopping-list">Shopping List</router-link>

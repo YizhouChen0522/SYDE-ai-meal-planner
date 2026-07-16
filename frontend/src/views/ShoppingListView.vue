@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useInventoryStore } from '../stores/inventoryStore'
 import { useShoppingListStore } from '../stores/shoppingListStore'
 
@@ -38,6 +38,24 @@ const removeShoppingListItem = (item) => {
   shoppingListStore.removeShoppingListItem(item.id)
   ElMessage.success(`${item.name} removed from shopping list.`)
 }
+
+const confirmRemoveShoppingListItem = async (item) => {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to remove ${item.name} from your shopping list?`,
+      'Confirm deletion',
+      {
+        confirmButtonText: 'Confirm',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+      },
+    )
+
+    removeShoppingListItem(item)
+  } catch (error) {
+    // User cancelled. Do nothing.
+  }
+}
 </script>
 
 <template>
@@ -61,7 +79,7 @@ const removeShoppingListItem = (item) => {
         <el-table-column prop="unit" label="Unit" min-width="90" />
         <el-table-column label="Delete" min-width="100">
           <template #default="{ row }">
-            <el-button type="danger" plain @click="removeShoppingListItem(row)">Delete</el-button>
+            <el-button type="danger" plain @click="confirmRemoveShoppingListItem(row)">Delete</el-button>
           </template>
         </el-table-column>
       </el-table>

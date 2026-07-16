@@ -1,7 +1,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useInventoryStore } from '../stores/inventoryStore'
 import { useMealPlanStore } from '../stores/mealPlanStore'
 import { useShoppingListStore } from '../stores/shoppingListStore'
@@ -204,8 +204,27 @@ const clearPlan = () => {
   cravingText.value = ''
 }
 
-const deleteRecipe = (id) => {
-  mealPlan.value = mealPlan.value.filter((recipe) => recipe.id !== id)
+const deleteRecipe = (recipe) => {
+  mealPlan.value = mealPlan.value.filter((savedRecipe) => savedRecipe.id !== recipe.id)
+  ElMessage.success(`${recipe.title} deleted.`)
+}
+
+const confirmDeleteRecipe = async (recipe) => {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to delete ${recipe.title}?`,
+      'Confirm deletion',
+      {
+        confirmButtonText: 'Confirm',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+      },
+    )
+
+    deleteRecipe(recipe)
+  } catch (error) {
+    // User cancelled. Do nothing.
+  }
 }
 
 const replaceRecipe = (id) => {
@@ -277,95 +296,102 @@ const confirmMealPlan = () => {
   <section class="page">
     <div class="page-heading">
       <p class="eyebrow">AI prototype</p>
-      <h1>Meal Planner</h1>
+      <h1>Home</h1>
       <p>Describe ingredients, constraints, or a weekly meal goal, then generate mock recipe ideas.</p>
     </div>
 
-    <el-card class="page-card planner-input" shadow="never">
-      <el-form label-position="top">
-        <el-form-item label="What do you want to eat?">
-          <el-input
-            v-model="cravingText"
-            type="textarea"
-            :rows="4"
-            placeholder="Example: I want spicy Chinese food, chicken, noodles, or a quick dinner."
-          />
-        </el-form-item>
+    <div class="home-layout">
+      <section class="meal-planner-column">
+        <el-card class="page-card planner-input" shadow="never">
+          <template #header>
+            <h2>AI Meal Planner</h2>
+          </template>
 
-        <div class="button-row">
-          <el-button type="primary" @click="generateRecipes">Generate 5 Recipes</el-button>
-          <el-button @click="clearPlan">Clear</el-button>
-        </div>
-      </el-form>
-    </el-card>
+          <el-form label-position="top">
+            <el-form-item label="What do you want to eat?">
+              <el-input
+                v-model="cravingText"
+                type="textarea"
+                :rows="4"
+                placeholder="Example: I want spicy Chinese food, chicken, noodles, or a quick dinner."
+              />
+            </el-form-item>
 
-    <el-card class="page-card planner-inventory-card" shadow="never">
-      <template #header>
-        <div>
-          <h2>Add Ingredients You Already Bought</h2>
-          <p class="card-description">
-            Use this when you bought ingredients outside the system and want to add them to your virtual fridge.
-          </p>
-        </div>
-      </template>
+            <div class="button-row">
+              <el-button type="primary" @click="generateRecipes">Generate 5 Recipes</el-button>
+              <el-button @click="clearPlan">Clear</el-button>
+            </div>
+          </el-form>
+        </el-card>
 
-      <el-form label-position="top" @submit.prevent="addItemToInventory">
-        <div class="form-grid">
-          <el-form-item label="Food name" required>
-            <el-input v-model="newInventoryItem.name" placeholder="Tomato" />
-          </el-form-item>
+        <div v-if="hasMealPlan" class="recipe-grid">
+          <el-card v-for="recipe in mealPlan" :key="recipe.id" class="recipe-card" shadow="never">
+            <template #header>
+              <div class="recipe-card-header">
+                <h2>{{ recipe.title }}</h2>
+              </div>
+            </template>
 
-          <el-form-item label="Quantity" required>
-            <el-input-number v-model="newInventoryItem.quantity" :min="0" :step="0.1" :precision="2" />
-          </el-form-item>
+            <h3>Ingredients</h3>
+            <ul>
+              <li v-for="ingredient in recipe.ingredients" :key="ingredient.name">
+                {{ ingredient.name }}: {{ ingredient.quantity }} {{ ingredient.unit }}
+              </li>
+            </ul>
 
-          <el-form-item label="Unit" required>
-            <el-select v-model="newInventoryItem.unit" placeholder="Select unit">
-              <el-option label="kg" value="kg" />
-              <el-option label="g" value="g" />
-              <el-option label="lb" value="lb" />
-              <el-option label="piece" value="piece" />
-              <el-option label="pieces" value="pieces" />
-              <el-option label="cups" value="cups" />
-            </el-select>
-          </el-form-item>
+            <div class="recipe-detail-actions">
+              <el-button plain @click="viewSteps(recipe)">View Steps</el-button>
+              <el-button plain @click="viewNutrition(recipe)">View Nutrition</el-button>
+            </div>
 
-        </div>
-
-        <el-button type="primary" native-type="submit">Add to Inventory</el-button>
-      </el-form>
-    </el-card>
-
-    <div v-if="hasMealPlan" class="recipe-grid">
-      <el-card v-for="recipe in mealPlan" :key="recipe.id" class="recipe-card" shadow="never">
-        <template #header>
-          <div class="recipe-card-header">
-            <h2>{{ recipe.title }}</h2>
-          </div>
-        </template>
-
-        <h3>Ingredients</h3>
-        <ul>
-          <li v-for="ingredient in recipe.ingredients" :key="ingredient.name">
-            {{ ingredient.name }}: {{ ingredient.quantity }} {{ ingredient.unit }}
-          </li>
-        </ul>
-
-        <div class="recipe-detail-actions">
-          <el-button plain @click="viewSteps(recipe)">View Steps</el-button>
-          <el-button plain @click="viewNutrition(recipe)">View Nutrition</el-button>
+            <div class="recipe-actions">
+              <el-button type="danger" plain @click="confirmDeleteRecipe(recipe)">Delete</el-button>
+              <el-button plain @click="replaceRecipe(recipe.id)">Replace</el-button>
+            </div>
+          </el-card>
         </div>
 
-        <div class="recipe-actions">
-          <el-button type="danger" plain @click="deleteRecipe(recipe.id)">Delete</el-button>
-          <el-button plain @click="replaceRecipe(recipe.id)">Replace</el-button>
+        <div v-if="hasMealPlan" class="planner-actions">
+          <el-button @click="addOneRecipe">+ Add One Recipe</el-button>
+          <el-button type="primary" @click="confirmMealPlan">Confirm Meal Plan</el-button>
         </div>
-      </el-card>
-    </div>
+      </section>
 
-    <div v-if="hasMealPlan" class="planner-actions">
-      <el-button @click="addOneRecipe">+ Add One Recipe</el-button>
-      <el-button type="primary" @click="confirmMealPlan">Confirm Meal Plan</el-button>
+      <aside class="inventory-add-column">
+        <el-card class="page-card planner-inventory-card" shadow="never">
+          <template #header>
+            <div>
+              <h2>Add Ingredients You Already Bought</h2>
+              <p class="card-description">
+                Use this when you bought ingredients outside the system and want to add them to your virtual fridge.
+              </p>
+            </div>
+          </template>
+
+          <el-form label-position="top" @submit.prevent="addItemToInventory">
+            <el-form-item label="Food name" required>
+              <el-input v-model="newInventoryItem.name" placeholder="Tomato" />
+            </el-form-item>
+
+            <el-form-item label="Quantity" required>
+              <el-input-number v-model="newInventoryItem.quantity" :min="0" :step="0.1" :precision="2" />
+            </el-form-item>
+
+            <el-form-item label="Unit" required>
+              <el-select v-model="newInventoryItem.unit" placeholder="Select unit">
+                <el-option label="kg" value="kg" />
+                <el-option label="g" value="g" />
+                <el-option label="lb" value="lb" />
+                <el-option label="piece" value="piece" />
+                <el-option label="pieces" value="pieces" />
+                <el-option label="cups" value="cups" />
+              </el-select>
+            </el-form-item>
+
+            <el-button type="primary" native-type="submit">Add to Inventory</el-button>
+          </el-form>
+        </el-card>
+      </aside>
     </div>
 
     <el-dialog v-model="isStepsDialogVisible" :title="selectedStepsRecipe?.title" width="520px">
