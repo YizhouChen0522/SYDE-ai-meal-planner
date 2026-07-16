@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: syde-ai-meal-planner-backend
+  autoconfigure:
+    exclude:
+      # TODO: Re-enable datasource auto-configuration when the database module begins.
+      # This keeps the initial health-check skeleton runnable before MySQL is configured.
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
