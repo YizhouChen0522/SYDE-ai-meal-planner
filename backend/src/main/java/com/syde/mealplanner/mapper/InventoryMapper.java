@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Mapper
@@ -25,6 +26,13 @@ public interface InventoryMapper {
             @Param("id") Long id,
             @Param("userId") Long userId,
             @Param("quantity") BigDecimal quantity);
+
+    int updateDetailsByIdAndUserId(
+            @Param("id") Long id,
+            @Param("userId") Long userId,
+            @Param("quantity") BigDecimal quantity,
+            @Param("addedDate") LocalDate addedDate,
+            @Param("reminderDays") Integer reminderDays);
 
     int deleteByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 }
