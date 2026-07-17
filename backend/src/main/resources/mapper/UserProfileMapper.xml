@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.syde.mealplanner.mapper.UserProfileMapper">
+
+    <resultMap id="UserProfileResultMap" type="com.syde.mealplanner.entity.UserProfile">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="likedFoods" column="liked_foods"
+                typeHandler="com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler"/>
+        <result property="dislikedFoods" column="disliked_foods"
+                typeHandler="com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler"/>
+        <result property="allergies" column="allergies"
+                typeHandler="com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="UserProfileColumns">
+        id, user_id, liked_foods, disliked_foods, allergies, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="com.syde.mealplanner.entity.UserProfile"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_profile (user_id, liked_foods, disliked_foods, allergies)
+        VALUES (
+            #{userId},
+            #{likedFoods,typeHandler=com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler},
+            #{dislikedFoods,typeHandler=com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler},
+            #{allergies,typeHandler=com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler}
+        )
+    </insert>
+
+    <select id="selectByUserId" resultMap="UserProfileResultMap">
+        SELECT
+        <include refid="UserProfileColumns"/>
+        FROM user_profile
+        WHERE user_id = #{userId}
+    </select>
+
+    <update id="updateByUserId" parameterType="com.syde.mealplanner.entity.UserProfile">
+        UPDATE user_profile
+        SET liked_foods = #{likedFoods,typeHandler=com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler},
+            disliked_foods = #{dislikedFoods,typeHandler=com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler},
+            allergies = #{allergies,typeHandler=com.syde.mealplanner.config.typehandler.ListStringJsonTypeHandler}
+        WHERE user_id = #{userId}
+    </update>
+</mapper>

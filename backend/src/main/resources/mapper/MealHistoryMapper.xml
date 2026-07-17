@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.syde.mealplanner.mapper.MealHistoryMapper">
+
+    <resultMap id="MealHistoryResultMap" type="com.syde.mealplanner.entity.MealHistory">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userRequest" column="user_request"/>
+        <result property="recipes" column="recipes"
+                typeHandler="com.syde.mealplanner.config.typehandler.RecipeSnapshotListJsonTypeHandler"/>
+        <result property="shoppingListSnapshot" column="shopping_list_snapshot"
+                typeHandler="com.syde.mealplanner.config.typehandler.ShoppingListSnapshotJsonTypeHandler"/>
+        <result property="confirmedTime" column="confirmed_time"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="MealHistoryColumns">
+        id, user_id, user_request, recipes, shopping_list_snapshot, confirmed_time, create_time
+    </sql>
+
+    <insert id="insert" parameterType="com.syde.mealplanner.entity.MealHistory"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO meal_history (
+            user_id,
+            user_request,
+            recipes,
+            shopping_list_snapshot
+            <if test="confirmedTime != null">
+                , confirmed_time
+            </if>
+        )
+        VALUES (
+            #{userId},
+            #{userRequest},
+            #{recipes,typeHandler=com.syde.mealplanner.config.typehandler.RecipeSnapshotListJsonTypeHandler},
+            #{shoppingListSnapshot,typeHandler=com.syde.mealplanner.config.typehandler.ShoppingListSnapshotJsonTypeHandler}
+            <if test="confirmedTime != null">
+                , #{confirmedTime}
+            </if>
+        )
+    </insert>
+
+    <select id="selectByIdAndUserId" resultMap="MealHistoryResultMap">
+        SELECT
+        <include refid="MealHistoryColumns"/>
+        FROM meal_history
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <select id="selectAllByUserId" resultMap="MealHistoryResultMap">
+        SELECT
+        <include refid="MealHistoryColumns"/>
+        FROM meal_history
+        WHERE user_id = #{userId}
+        ORDER BY confirmed_time DESC, id DESC
+    </select>
+</mapper>

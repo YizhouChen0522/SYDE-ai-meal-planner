@@ -4,13 +4,20 @@ server:
 spring:
   application:
     name: syde-ai-meal-planner-backend
-  autoconfigure:
-    exclude:
-      # TODO: Re-enable datasource auto-configuration when the database module begins.
-      # This keeps the initial health-check skeleton runnable before MySQL is configured.
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/syde_meal_planner?useUnicode=true&characterEncoding=utf-8&serverTimezone=America/Toronto
+    username: root
+    password: "*******"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:local-development-secret-that-must-be-replaced-with-a-secure-value}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
