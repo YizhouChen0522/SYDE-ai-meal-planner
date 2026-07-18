@@ -1,41 +1,50 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useInventoryStore } from '../stores/inventoryStore'
+import { getApiErrorMessage } from '../api/http'
 import { useShoppingListStore } from '../stores/shoppingListStore'
 
 const router = useRouter()
-const inventoryStore = useInventoryStore()
 const shoppingListStore = useShoppingListStore()
 
-inventoryStore.loadInventoryFromStorage()
-shoppingListStore.loadShoppingListFromStorage()
+const isPlacingOrder = ref(false)
 
 const hasShoppingList = computed(() => shoppingListStore.items.length > 0)
 
-const placeMockOrder = () => {
+const loadShoppingList = async () => {
+  try {
+    await shoppingListStore.loadShoppingList()
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not load shopping list.'))
+  }
+}
+
+onMounted(() => {
+  loadShoppingList()
+})
+
+const placeOrder = async () => {
   if (!hasShoppingList.value) {
     ElMessage.warning('There are no shopping list items to order.')
     return
   }
 
-  shoppingListStore.items.forEach((item) => {
-    inventoryStore.addOrMergeItem({
-      id: inventoryStore.createInventoryId(),
-      name: item.name,
-      quantity: item.quantityToBuy,
-      unit: item.unit,
-    })
-  })
+  isPlacingOrder.value = true
 
-  shoppingListStore.clearShoppingList()
-  ElMessage.success('Mock order placed. Items were added to inventory.')
-  router.push('/inventory')
+  try {
+    await shoppingListStore.placeOrder()
+    ElMessage.success('Order placed. Items were added to inventory.')
+    router.push('/inventory')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not place order.'))
+  } finally {
+    isPlacingOrder.value = false
+  }
 }
 
-const removeShoppingListItem = (item) => {
-  shoppingListStore.removeShoppingListItem(item.id)
+const removeShoppingListItem = async (item) => {
+  await shoppingListStore.removeShoppingListItem(item.id)
   ElMessage.success(`${item.name} removed from shopping list.`)
 }
 
@@ -51,9 +60,11 @@ const confirmRemoveShoppingListItem = async (item) => {
       },
     )
 
-    removeShoppingListItem(item)
+    await removeShoppingListItem(item)
   } catch (error) {
-    // User cancelled. Do nothing.
+    if (error !== 'cancel') {
+      ElMessage.error(getApiErrorMessage(error, 'Could not remove shopping list item.'))
+    }
   }
 }
 </script>
@@ -61,12 +72,21 @@ const confirmRemoveShoppingListItem = async (item) => {
 <template>
   <section class="page">
     <div class="page-heading">
-      <p class="eyebrow">Mock Order</p>
+      <p class="eyebrow">Order</p>
       <h1>Shopping List</h1>
       <p>Review what needs to be purchased after comparing the confirmed recipes with inventory.</p>
     </div>
 
-    <el-card class="page-card" shadow="never">
+    <el-alert
+      v-if="shoppingListStore.error"
+      :title="shoppingListStore.error"
+      type="error"
+      show-icon
+      class="profile-alert"
+      :closable="false"
+    />
+
+    <el-card class="page-card" shadow="never" v-loading="shoppingListStore.isLoading">
       <template #header>
         <h2>Items to Buy</h2>
       </template>
@@ -85,8 +105,8 @@ const confirmRemoveShoppingListItem = async (item) => {
       </el-table>
 
       <div class="planner-actions">
-        <el-button type="primary" :disabled="!hasShoppingList" @click="placeMockOrder">
-          Place Mock Order
+        <el-button type="primary" :disabled="!hasShoppingList" :loading="isPlacingOrder" @click="placeOrder">
+          Place Order
         </el-button>
       </div>
     </el-card>

@@ -1,139 +1,123 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-
-const INVENTORY_KEY = 'syde-inventory-items'
-
-const mockItems = [
-  {
-    id: 'mock-chili',
-    name: 'Chili',
-    quantity: 1,
-    unit: 'kg',
-    addedDate: '2026-06-01',
-  },
-  {
-    id: 'mock-chicken-breast',
-    name: 'Chicken breast',
-    quantity: 0.8,
-    unit: 'kg',
-    addedDate: '2026-06-10',
-  },
-]
-
-const readInventory = () => {
-  try {
-    const savedItems = localStorage.getItem(INVENTORY_KEY)
-    return savedItems ? JSON.parse(savedItems) : mockItems
-  } catch (error) {
-    console.warn('Could not read inventory from localStorage', error)
-    return mockItems
-  }
-}
+import {
+  createInventoryItem,
+  deleteInventoryItem,
+  getInventoryItems,
+  updateInventoryItem,
+} from '../api/inventoryApi'
 
 const getToday = () => new Date().toISOString().slice(0, 10)
-
-const createInventoryId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 const normalizeName = (name) => name.trim().toLowerCase()
 const roundQuantity = (value) => Number(value.toFixed(2))
 
-const cleanInventoryItems = (inventoryItems) => {
-  const usedIds = new Set()
+const toFrontendItem = (item) => ({
+  id: item.id,
+  name: item.foodName,
+  quantity: Number(item.quantity),
+  unit: item.unit,
+  addedDate: item.addedDate,
+  reminderDays: item.reminderDays,
+  createTime: item.createTime,
+  updateTime: item.updateTime,
+})
 
-  return inventoryItems.map((item) => {
-    let itemId = item.id
+const toCreatePayload = (form) => ({
+  foodName: form.name.trim(),
+  quantity: Number(form.quantity),
+  unit: form.unit.trim(),
+  addedDate: form.addedDate || getToday(),
+  reminderDays: Number(form.reminderDays ?? 0),
+})
 
-    if (!itemId || usedIds.has(itemId)) {
-      itemId = createInventoryId()
-    }
-
-    usedIds.add(itemId)
-
-    return {
-      id: itemId,
-      name: item.name || '',
-      quantity: Number(item.quantity) || 0,
-      unit: item.unit || '',
-      addedDate: item.addedDate || getToday(),
-    }
-  })
-}
+const toUpdatePayload = (item, quantity) => ({
+  quantity: Number(quantity),
+  addedDate: item.addedDate || getToday(),
+  reminderDays: Number(item.reminderDays ?? 0),
+})
 
 export const useInventoryStore = defineStore('inventory', () => {
   const items = ref([])
+  const isLoading = ref(false)
+  const error = ref('')
 
-  const saveInventory = () => {
-    localStorage.setItem(INVENTORY_KEY, JSON.stringify(items.value))
+  const loadInventory = async () => {
+    isLoading.value = true
+    error.value = ''
+
+    try {
+      items.value = (await getInventoryItems()).map(toFrontendItem)
+    } catch (requestError) {
+      items.value = []
+      error.value = 'Could not load inventory.'
+      throw requestError
+    } finally {
+      isLoading.value = false
+    }
   }
 
-  const loadInventoryFromStorage = () => {
-    items.value = cleanInventoryItems(readInventory())
-    saveInventory()
+  const addItem = async (form) => {
+    const createdItem = toFrontendItem(await createInventoryItem(toCreatePayload(form)))
+    items.value = [...items.value, createdItem]
+    return createdItem
   }
 
-  const addItem = (form) => {
-    items.value.push({
-      id: form.id || createInventoryId(),
-      name: form.name.trim(),
-      quantity: Number(form.quantity),
-      unit: form.unit,
-      addedDate: form.addedDate || getToday(),
-    })
-    saveInventory()
-  }
-
-  const addOrMergeItem = (form) => {
+  const addOrMergeItem = async (form) => {
     const itemName = form.name.trim()
-    const itemUnit = form.unit
+    const itemUnit = form.unit.trim()
     const matchingItem = items.value.find(
       (item) => normalizeName(item.name) === normalizeName(itemName) && item.unit === itemUnit,
     )
 
     if (matchingItem) {
-      matchingItem.quantity = roundQuantity(matchingItem.quantity + Number(form.quantity))
-      saveInventory()
-      return
+      const updatedQuantity = roundQuantity(matchingItem.quantity + Number(form.quantity))
+      const updatedItem = toFrontendItem(
+        await updateInventoryItem(matchingItem.id, toUpdatePayload(matchingItem, updatedQuantity)),
+      )
+
+      items.value = items.value.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+      return updatedItem
     }
 
-    addItem(form)
+    return addItem(form)
   }
 
-  const removeItem = (itemId) => {
+  const removeItem = async (itemId) => {
+    await deleteInventoryItem(itemId)
     items.value = items.value.filter((item) => item.id !== itemId)
-    saveInventory()
   }
 
-  const applyConsumption = (itemId, consumedPercent) => {
+  const applyConsumption = async (itemId, consumedPercent) => {
+    const item = items.value.find((inventoryItem) => inventoryItem.id === itemId)
     const percent = Number(consumedPercent)
 
-    if (percent === 100) {
-      items.value = items.value.filter((item) => item.id !== itemId)
-      saveInventory()
-      return
+    if (!item) {
+      return null
     }
 
-    items.value = items.value.map((item) => {
-      if (item.id !== itemId) {
-        return item
-      }
+    if (percent === 100) {
+      await removeItem(itemId)
+      return null
+    }
 
-      const remainingPercent = (100 - percent) / 100
-      const nextQuantity = Number((item.quantity * remainingPercent).toFixed(2))
+    const remainingPercent = (100 - percent) / 100
+    const nextQuantity = roundQuantity(item.quantity * remainingPercent)
+    const updatedItem = toFrontendItem(await updateInventoryItem(itemId, toUpdatePayload(item, nextQuantity)))
 
-      return {
-        ...item,
-        quantity: nextQuantity,
-      }
-    })
-    saveInventory()
+    items.value = items.value.map((inventoryItem) =>
+      inventoryItem.id === updatedItem.id ? updatedItem : inventoryItem,
+    )
+    return updatedItem
   }
 
   return {
     items,
+    isLoading,
+    error,
     addItem,
     addOrMergeItem,
     applyConsumption,
-    createInventoryId,
     removeItem,
-    loadInventoryFromStorage,
+    loadInventory,
   }
 })

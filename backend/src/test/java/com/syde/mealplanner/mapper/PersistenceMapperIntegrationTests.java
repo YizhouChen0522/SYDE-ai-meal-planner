@@ -2,6 +2,7 @@ package com.syde.mealplanner.mapper;
 
 import com.syde.mealplanner.entity.Inventory;
 import com.syde.mealplanner.entity.MealHistory;
+import com.syde.mealplanner.entity.MealPlanDraft;
 import com.syde.mealplanner.entity.ShoppingList;
 import com.syde.mealplanner.entity.User;
 import com.syde.mealplanner.entity.UserProfile;
@@ -45,6 +46,9 @@ class PersistenceMapperIntegrationTests {
 
     @Autowired
     private MealHistoryMapper mealHistoryMapper;
+
+    @Autowired
+    private MealPlanDraftMapper mealPlanDraftMapper;
 
     @Test
     void userMapperSupportsInsertSelectAndStatusUpdate() {
@@ -201,6 +205,38 @@ class PersistenceMapperIntegrationTests {
         assertFalse(histories.get(0).getId() < histories.get(1).getId());
     }
 
+    @Test
+    void mealPlanDraftMapperSupportsInsertSelectUpdateAndDelete() {
+        User user = insertTestUser();
+
+        MealPlanDraft draft = new MealPlanDraft();
+        draft.setUserId(user.getId());
+        draft.setUserRequest("High protein lunches");
+        draft.setRecipes(List.of(newRecipeSnapshot()));
+
+        assertEquals(1, mealPlanDraftMapper.insert(draft));
+        assertNotNull(draft.getId());
+
+        MealPlanDraft selectedById = mealPlanDraftMapper.selectByIdAndUserId(draft.getId(), user.getId());
+        assertMealPlanDraft(selectedById, "High protein lunches", "Test Lemon Chicken");
+
+        MealPlanDraft selectedByUserId = mealPlanDraftMapper.selectByUserId(user.getId());
+        assertMealPlanDraft(selectedByUserId, "High protein lunches", "Test Lemon Chicken");
+
+        RecipeSnapshot updatedRecipe = newRecipeSnapshot();
+        updatedRecipe.setTitle("Updated Draft Recipe");
+        draft.setUserRequest("Vegetarian dinners");
+        draft.setRecipes(List.of(updatedRecipe));
+
+        assertEquals(1, mealPlanDraftMapper.updateByUserId(draft));
+
+        MealPlanDraft updated = mealPlanDraftMapper.selectByUserId(user.getId());
+        assertMealPlanDraft(updated, "Vegetarian dinners", "Updated Draft Recipe");
+
+        assertEquals(1, mealPlanDraftMapper.deleteByUserId(user.getId()));
+        assertNull(mealPlanDraftMapper.selectByUserId(user.getId()));
+    }
+
     private User insertTestUser() {
         User user = newTestUser();
         assertEquals(1, userMapper.insert(user));
@@ -328,6 +364,23 @@ class PersistenceMapperIntegrationTests {
         assertBigDecimalEquals("0.10", shoppingItem.getAvailableFromInventory());
         assertBigDecimalEquals("0.40", shoppingItem.getQuantityToBuy());
         assertEquals("kg", shoppingItem.getUnit());
+    }
+
+    private void assertMealPlanDraft(MealPlanDraft selected, String expectedUserRequest, String expectedRecipeTitle) {
+        assertNotNull(selected);
+        assertNotNull(selected.getId());
+        assertEquals(expectedUserRequest, selected.getUserRequest());
+        assertNotNull(selected.getCreateTime());
+        assertNotNull(selected.getUpdateTime());
+
+        assertEquals(1, selected.getRecipes().size());
+        RecipeSnapshot recipe = selected.getRecipes().get(0);
+        assertEquals(expectedRecipeTitle, recipe.getTitle());
+        assertEquals(1, recipe.getIngredients().size());
+        assertEquals("Chicken breast", recipe.getIngredients().get(0).getName());
+        assertBigDecimalEquals("0.50", recipe.getIngredients().get(0).getQuantity());
+        assertEquals(List.of("Season chicken.", "Bake until cooked."), recipe.getSteps());
+        assertBigDecimalEquals("42", recipe.getNutrition().get("protein").getAmount());
     }
 
     private void assertBigDecimalEquals(String expected, BigDecimal actual) {

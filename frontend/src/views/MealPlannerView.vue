@@ -1,170 +1,58 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getApiErrorMessage } from '../api/http'
+import {
+  addMealPlanRecipe,
+  confirmCurrentMealPlanDraft,
+  deleteCurrentMealPlanDraft,
+  deleteMealPlanRecipe,
+  generateMealPlanDraft,
+  getCurrentMealPlanDraft,
+  replaceMealPlanRecipe,
+} from '../api/mealPlannerApi'
 import { useInventoryStore } from '../stores/inventoryStore'
-import { useMealPlanStore } from '../stores/mealPlanStore'
-import { useShoppingListStore } from '../stores/shoppingListStore'
 
 const router = useRouter()
 const cravingText = ref('')
 const mealPlan = ref([])
+const currentDraft = ref(null)
 const selectedStepsRecipe = ref(null)
 const selectedNutritionRecipe = ref(null)
 const inventoryStore = useInventoryStore()
-const mealPlanStore = useMealPlanStore()
-const shoppingListStore = useShoppingListStore()
-
-inventoryStore.loadInventoryFromStorage()
-shoppingListStore.loadShoppingListFromStorage()
 
 const newInventoryItem = reactive({
   name: '',
   quantity: 1,
   unit: 'kg',
 })
+const isAddingInventoryItem = ref(false)
+const isDraftLoading = ref(false)
+const isGenerating = ref(false)
+const isMutatingDraft = ref(false)
+const isConfirming = ref(false)
 
-const mockRecipes = [
-  {
-    id: 1,
-    title: 'Lemon Chickpea Power Bowl',
-    ingredients: [
-      { name: 'Chickpeas', quantity: 0.3, unit: 'kg' },
-      { name: 'Brown rice', quantity: 0.2, unit: 'kg' },
-      { name: 'Spinach', quantity: 0.1, unit: 'kg' },
-      { name: 'Cucumber', quantity: 1, unit: 'piece' },
-      { name: 'Greek yogurt', quantity: 0.08, unit: 'kg' },
-    ],
-    steps: [
-      'Warm chickpeas with olive oil, garlic, and paprika.',
-      'Layer brown rice, spinach, cucumber, and chickpeas in a bowl.',
-      'Mix Greek yogurt with lemon juice and spoon it over the bowl.',
-    ],
-    nutrition: {
-      calories: { amount: 520, unit: 'kcal', dailyValuePercent: 26 },
-      protein: { amount: 28, unit: 'g', dailyValuePercent: 56 },
-      fiber: { amount: 9, unit: 'g', dailyValuePercent: 32 },
-      vitaminC: { amount: 24, unit: 'mg', dailyValuePercent: 27 },
-      iron: { amount: 4, unit: 'mg', dailyValuePercent: 22 },
-    },
-  },
-  {
-    id: 2,
-    title: 'Teriyaki Tofu Stir-Fry',
-    ingredients: [
-      { name: 'Tofu', quantity: 0.35, unit: 'kg' },
-      { name: 'Broccoli', quantity: 0.2, unit: 'kg' },
-      { name: 'Bell pepper', quantity: 1, unit: 'piece' },
-      { name: 'Soy sauce', quantity: 30, unit: 'ml' },
-      { name: 'Rice', quantity: 0.2, unit: 'kg' },
-    ],
-    steps: [
-      'Press tofu briefly, then cut it into cubes.',
-      'Pan-sear tofu until the edges are golden.',
-      'Stir-fry broccoli and bell pepper, then add soy sauce and tofu.',
-      'Serve over warm rice.',
-    ],
-    nutrition: {
-      calories: { amount: 610, unit: 'kcal', dailyValuePercent: 31 },
-      protein: { amount: 32, unit: 'g', dailyValuePercent: 64 },
-      fiber: { amount: 8, unit: 'g', dailyValuePercent: 29 },
-      vitaminC: { amount: 88, unit: 'mg', dailyValuePercent: 98 },
-      iron: { amount: 5, unit: 'mg', dailyValuePercent: 28 },
-    },
-  },
-  {
-    id: 3,
-    title: 'Turkey Taco Lettuce Cups',
-    ingredients: [
-      { name: 'Ground turkey', quantity: 0.35, unit: 'kg' },
-      { name: 'Romaine lettuce', quantity: 6, unit: 'leaves' },
-      { name: 'Black beans', quantity: 0.2, unit: 'kg' },
-      { name: 'Corn', quantity: 0.15, unit: 'kg' },
-      { name: 'Tomato', quantity: 1, unit: 'piece' },
-    ],
-    steps: [
-      'Cook ground turkey with taco seasoning until browned.',
-      'Warm black beans and corn in a small pan.',
-      'Spoon turkey, beans, corn, and tomato into lettuce leaves.',
-    ],
-    nutrition: {
-      calories: { amount: 470, unit: 'kcal', dailyValuePercent: 24 },
-      protein: { amount: 35, unit: 'g', dailyValuePercent: 70 },
-      fiber: { amount: 10, unit: 'g', dailyValuePercent: 36 },
-      vitaminC: { amount: 32, unit: 'mg', dailyValuePercent: 36 },
-      iron: { amount: 4.5, unit: 'mg', dailyValuePercent: 25 },
-    },
-  },
-  {
-    id: 4,
-    title: 'Creamy Tomato Lentil Pasta',
-    ingredients: [
-      { name: 'Pasta', quantity: 0.25, unit: 'kg' },
-      { name: 'Red lentils', quantity: 0.15, unit: 'kg' },
-      { name: 'Crushed tomatoes', quantity: 0.4, unit: 'kg' },
-      { name: 'Garlic', quantity: 2, unit: 'cloves' },
-      { name: 'Parmesan', quantity: 0.04, unit: 'kg' },
-    ],
-    steps: [
-      'Simmer red lentils in crushed tomatoes with garlic.',
-      'Cook pasta until al dente.',
-      'Combine pasta with the lentil tomato sauce and parmesan.',
-    ],
-    nutrition: {
-      calories: { amount: 680, unit: 'kcal', dailyValuePercent: 34 },
-      protein: { amount: 30, unit: 'g', dailyValuePercent: 60 },
-      fiber: { amount: 13, unit: 'g', dailyValuePercent: 46 },
-      vitaminC: { amount: 20, unit: 'mg', dailyValuePercent: 22 },
-      iron: { amount: 6, unit: 'mg', dailyValuePercent: 33 },
-    },
-  },
-  {
-    id: 5,
-    title: 'Sheet Pan Salmon and Veg',
-    ingredients: [
-      { name: 'Salmon', quantity: 0.3, unit: 'kg' },
-      { name: 'Baby potatoes', quantity: 0.35, unit: 'kg' },
-      { name: 'Green beans', quantity: 0.2, unit: 'kg' },
-      { name: 'Dijon mustard', quantity: 20, unit: 'g' },
-      { name: 'Lemon', quantity: 1, unit: 'piece' },
-    ],
-    steps: [
-      'Roast baby potatoes until they start to soften.',
-      'Add salmon and green beans to the sheet pan.',
-      'Brush salmon with Dijon and lemon, then finish roasting.',
-    ],
-    nutrition: {
-      calories: { amount: 590, unit: 'kcal', dailyValuePercent: 30 },
-      protein: { amount: 39, unit: 'g', dailyValuePercent: 78 },
-      fiber: { amount: 7, unit: 'g', dailyValuePercent: 25 },
-      vitaminC: { amount: 46, unit: 'mg', dailyValuePercent: 51 },
-      iron: { amount: 3, unit: 'mg', dailyValuePercent: 17 },
-    },
-  },
-  {
-    id: 6,
-    title: 'Black Bean Sweet Potato Chili',
-    ingredients: [
-      { name: 'Sweet potato', quantity: 0.35, unit: 'kg' },
-      { name: 'Black beans', quantity: 0.3, unit: 'kg' },
-      { name: 'Tomatoes', quantity: 0.4, unit: 'kg' },
-      { name: 'Onion', quantity: 1, unit: 'piece' },
-      { name: 'Vegetable broth', quantity: 0.5, unit: 'l' },
-    ],
-    steps: [
-      'Saute onion with chili powder until fragrant.',
-      'Add sweet potato, black beans, tomatoes, and vegetable broth.',
-      'Simmer until the chili is thick and the sweet potato is tender.',
-    ],
-    nutrition: {
-      calories: { amount: 540, unit: 'kcal', dailyValuePercent: 27 },
-      protein: { amount: 22, unit: 'g', dailyValuePercent: 44 },
-      fiber: { amount: 18, unit: 'g', dailyValuePercent: 64 },
-      vitaminC: { amount: 38, unit: 'mg', dailyValuePercent: 42 },
-      iron: { amount: 5.5, unit: 'mg', dailyValuePercent: 31 },
-    },
-  },
-]
+const applyDraft = (draft) => {
+  currentDraft.value = draft
+  cravingText.value = draft?.userRequest || ''
+  mealPlan.value = Array.isArray(draft?.recipes) ? draft.recipes : []
+}
+
+onMounted(async () => {
+  try {
+    isDraftLoading.value = true
+    const [draft] = await Promise.all([
+      getCurrentMealPlanDraft(),
+      inventoryStore.loadInventory(),
+    ])
+    applyDraft(draft)
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not load meal planner data.'))
+  } finally {
+    isDraftLoading.value = false
+  }
+})
 
 const hasMealPlan = computed(() => mealPlan.value.length > 0)
 const isStepsDialogVisible = computed({
@@ -187,26 +75,72 @@ const isNutritionDialogVisible = computed({
 const nutritionLabels = {
   calories: 'Calories',
   protein: 'Protein',
+  fat: 'Fat',
+  carbohydrates: 'Carbohydrates',
   fiber: 'Fiber',
   vitaminC: 'Vitamin C',
   iron: 'Iron',
 }
 
-const generateRecipes = () => {
-  mealPlan.value = mockRecipes.slice(0, 5).map((recipe, index) => ({
-    ...recipe,
-    id: Date.now() + index,
-  }))
+const formatNutritionLabel = (key) => {
+  if (!key) {
+    return 'Nutrition'
+  }
+
+  return nutritionLabels[key] || String(key)
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-const clearPlan = () => {
-  mealPlan.value = []
-  cravingText.value = ''
+const generateRecipes = async () => {
+  if (!cravingText.value.trim()) {
+    ElMessage.warning('Please describe what you want to eat.')
+    return
+  }
+
+  isGenerating.value = true
+
+  try {
+    applyDraft(await generateMealPlanDraft({ userRequest: cravingText.value.trim() }))
+    ElMessage.success('Meal plan draft generated.')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not generate meal plan.'))
+  } finally {
+    isGenerating.value = false
+  }
 }
 
-const deleteRecipe = (recipe) => {
-  mealPlan.value = mealPlan.value.filter((savedRecipe) => savedRecipe.id !== recipe.id)
-  ElMessage.success(`${recipe.title} deleted.`)
+const clearPlan = async () => {
+  if (!currentDraft.value) {
+    applyDraft(null)
+    return
+  }
+
+  isMutatingDraft.value = true
+
+  try {
+    await deleteCurrentMealPlanDraft()
+    applyDraft(null)
+    ElMessage.success('Meal plan draft deleted.')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not delete meal plan draft.'))
+  } finally {
+    isMutatingDraft.value = false
+  }
+}
+
+const deleteRecipe = async (recipe) => {
+  isMutatingDraft.value = true
+
+  try {
+    applyDraft(await deleteMealPlanRecipe(recipe.id))
+    ElMessage.success(`${recipe.title} deleted.`)
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not delete recipe.'))
+  } finally {
+    isMutatingDraft.value = false
+  }
 }
 
 const confirmDeleteRecipe = async (recipe) => {
@@ -221,29 +155,38 @@ const confirmDeleteRecipe = async (recipe) => {
       },
     )
 
-    deleteRecipe(recipe)
+    await deleteRecipe(recipe)
   } catch (error) {
-    // User cancelled. Do nothing.
+    if (error !== 'cancel') {
+      ElMessage.error(getApiErrorMessage(error, 'Could not delete recipe.'))
+    }
   }
 }
 
-const replaceRecipe = (id) => {
-  const existingTitles = mealPlan.value.map((recipe) => recipe.title)
-  const replacement = mockRecipes.find((recipe) => !existingTitles.includes(recipe.title)) || mockRecipes[0]
+const replaceRecipe = async (id) => {
+  isMutatingDraft.value = true
 
-  mealPlan.value = mealPlan.value.map((recipe) =>
-    recipe.id === id ? { ...replacement, id: Date.now() } : recipe,
-  )
+  try {
+    applyDraft(await replaceMealPlanRecipe(id))
+    ElMessage.success('Recipe replaced.')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not replace recipe.'))
+  } finally {
+    isMutatingDraft.value = false
+  }
 }
 
-const addOneRecipe = () => {
-  const existingTitles = mealPlan.value.map((recipe) => recipe.title)
-  const nextRecipe = mockRecipes.find((recipe) => !existingTitles.includes(recipe.title)) || mockRecipes[0]
+const addOneRecipe = async () => {
+  isMutatingDraft.value = true
 
-  mealPlan.value.push({
-    ...nextRecipe,
-    id: Date.now(),
-  })
+  try {
+    applyDraft(await addMealPlanRecipe())
+    ElMessage.success('Recipe added.')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not add recipe.'))
+  } finally {
+    isMutatingDraft.value = false
+  }
 }
 
 const viewSteps = (recipe) => {
@@ -254,7 +197,7 @@ const viewNutrition = (recipe) => {
   selectedNutritionRecipe.value = recipe
 }
 
-const addItemToInventory = () => {
+const addItemToInventory = async () => {
   if (!newInventoryItem.name.trim()) {
     ElMessage.warning('Please enter a food name.')
     return
@@ -270,25 +213,40 @@ const addItemToInventory = () => {
     return
   }
 
-  inventoryStore.addItem(newInventoryItem)
-  ElMessage.success(`${newInventoryItem.name.trim()} added to inventory.`)
+  isAddingInventoryItem.value = true
 
-  newInventoryItem.name = ''
-  newInventoryItem.quantity = 1
-  newInventoryItem.unit = 'kg'
+  try {
+    await inventoryStore.addItem(newInventoryItem)
+    ElMessage.success(`${newInventoryItem.name.trim()} added to inventory.`)
+
+    newInventoryItem.name = ''
+    newInventoryItem.quantity = 1
+    newInventoryItem.unit = 'kg'
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not add inventory item.'))
+  } finally {
+    isAddingInventoryItem.value = false
+  }
 }
 
-const confirmMealPlan = () => {
-  shoppingListStore.generateShoppingList(mealPlan.value, inventoryStore.items)
-  mealPlanStore.confirmMealPlan({
-    desiredFoodInput: cravingText.value,
-    recipes: mealPlan.value,
-    shoppingListSnapshot: shoppingListStore.items,
-  })
+const confirmMealPlan = async () => {
+  if (!currentDraft.value) {
+    ElMessage.warning('Please generate a meal plan first.')
+    return
+  }
 
-  console.log('Confirmed meal plan:', mealPlanStore.currentMealPlanDraft)
-  ElMessage.success('Meal plan confirmed. Shopping list generated.')
-  router.push('/shopping-list')
+  isConfirming.value = true
+
+  try {
+    await confirmCurrentMealPlanDraft()
+    applyDraft(null)
+    ElMessage.success('Meal plan confirmed successfully.')
+    router.push('/shopping-list')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not confirm meal plan.'))
+  } finally {
+    isConfirming.value = false
+  }
 }
 </script>
 
@@ -297,12 +255,12 @@ const confirmMealPlan = () => {
     <div class="page-heading">
       <p class="eyebrow">AI prototype</p>
       <h1>Home</h1>
-      <p>Describe ingredients, constraints, or a weekly meal goal, then generate mock recipe ideas.</p>
+      <p>Describe ingredients, constraints, or a weekly meal goal, then generate recipe ideas.</p>
     </div>
 
     <div class="home-layout">
       <section class="meal-planner-column">
-        <el-card class="page-card planner-input" shadow="never">
+        <el-card class="page-card planner-input" shadow="never" v-loading="isDraftLoading">
           <template #header>
             <h2>AI Meal Planner</h2>
           </template>
@@ -318,8 +276,17 @@ const confirmMealPlan = () => {
             </el-form-item>
 
             <div class="button-row">
-              <el-button type="primary" @click="generateRecipes">Generate 5 Recipes</el-button>
-              <el-button @click="clearPlan">Clear</el-button>
+              <el-button
+                type="primary"
+                :loading="isGenerating"
+                :disabled="isDraftLoading || isMutatingDraft || isConfirming"
+                @click="generateRecipes"
+              >
+                Generate 5 Recipes
+              </el-button>
+              <el-button :disabled="isDraftLoading || isGenerating || isMutatingDraft || isConfirming" @click="clearPlan">
+                Clear
+              </el-button>
             </div>
           </el-form>
         </el-card>
@@ -345,15 +312,23 @@ const confirmMealPlan = () => {
             </div>
 
             <div class="recipe-actions">
-              <el-button type="danger" plain @click="confirmDeleteRecipe(recipe)">Delete</el-button>
-              <el-button plain @click="replaceRecipe(recipe.id)">Replace</el-button>
+              <el-button type="danger" plain :disabled="isMutatingDraft || isConfirming" @click="confirmDeleteRecipe(recipe)">
+                Delete
+              </el-button>
+              <el-button plain :disabled="isMutatingDraft || isConfirming" @click="replaceRecipe(recipe.id)">
+                Replace
+              </el-button>
             </div>
           </el-card>
         </div>
 
         <div v-if="hasMealPlan" class="planner-actions">
-          <el-button @click="addOneRecipe">+ Add One Recipe</el-button>
-          <el-button type="primary" @click="confirmMealPlan">Confirm Meal Plan</el-button>
+          <el-button :loading="isMutatingDraft" :disabled="isConfirming" @click="addOneRecipe">
+            + Add One Recipe
+          </el-button>
+          <el-button type="primary" :loading="isConfirming" :disabled="isMutatingDraft" @click="confirmMealPlan">
+            Confirm Meal Plan
+          </el-button>
         </div>
       </section>
 
@@ -388,7 +363,9 @@ const confirmMealPlan = () => {
               </el-select>
             </el-form-item>
 
-            <el-button type="primary" native-type="submit">Add to Inventory</el-button>
+            <el-button type="primary" native-type="submit" :loading="isAddingInventoryItem">
+              Add to Inventory
+            </el-button>
           </el-form>
         </el-card>
       </aside>
@@ -403,7 +380,7 @@ const confirmMealPlan = () => {
     <el-dialog v-model="isNutritionDialogVisible" :title="selectedNutritionRecipe?.title" width="560px">
       <div v-if="selectedNutritionRecipe" class="nutrition-list">
         <p v-for="(nutrient, key) in selectedNutritionRecipe.nutrition" :key="key">
-          <strong>{{ nutritionLabels[key] }}:</strong>
+          <strong>{{ formatNutritionLabel(key) }}:</strong>
           {{ nutrient.amount }} {{ nutrient.unit }},
           {{ nutrient.dailyValuePercent }}% of recommended daily intake
         </p>

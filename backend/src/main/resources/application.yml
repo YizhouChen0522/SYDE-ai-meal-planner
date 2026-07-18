@@ -7,8 +7,8 @@ spring:
 
   datasource:
     url: jdbc:mysql://localhost:3306/syde_meal_planner?useUnicode=true&characterEncoding=utf-8&serverTimezone=America/Toronto
-    username: root
-    password: "*******"
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 
@@ -21,3 +21,10 @@ app:
   jwt:
     secret: ${JWT_SECRET:local-development-secret-that-must-be-replaced-with-a-secure-value}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+meal-generation:
+  provider: ${MEAL_GENERATION_PROVIDER:mock}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-4.1-mini}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
