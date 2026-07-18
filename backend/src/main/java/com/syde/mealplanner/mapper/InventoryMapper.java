@@ -34,5 +34,11 @@ public interface InventoryMapper {
             @Param("addedDate") LocalDate addedDate,
             @Param("reminderDays") Integer reminderDays);
 
+    int updateQuantityAndAddedDateByIdAndUserId(
+            @Param("id") Long id,
+            @Param("userId") Long userId,
+            @Param("quantity") BigDecimal quantity,
+            @Param("addedDate") LocalDate addedDate);
+
     int deleteByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 }

@@ -67,6 +67,14 @@
           AND user_id = #{userId}
     </update>
 
+    <update id="updateQuantityAndAddedDateByIdAndUserId">
+        UPDATE inventory
+        SET quantity = #{quantity},
+            added_date = #{addedDate}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
     <delete id="deleteByIdAndUserId">
         DELETE FROM inventory
         WHERE id = #{id}
