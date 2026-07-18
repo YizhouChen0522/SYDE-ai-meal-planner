@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { loginUser, registerUser } from '../api/authApi'
 
 const TOKEN_KEY = 'syde-auth-token'
 const USER_KEY = 'syde-current-user'
@@ -55,26 +56,28 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const login = (form) => {
-    token.value = 'mock-jwt-token'
-    currentUser.value = {
-      id: 1,
-      username: 'Demo User',
+  const login = async (form) => {
+    const loginResponse = await loginUser({
       email: form.email,
-    }
+      password: form.password,
+    })
+
+    token.value = loginResponse.token
+    currentUser.value = loginResponse.user
 
     localStorage.setItem(TOKEN_KEY, token.value)
     localStorage.setItem(USER_KEY, JSON.stringify(currentUser.value))
+    saveProfile(defaultProfile)
 
-    if (!localStorage.getItem(PROFILE_KEY)) {
-      saveProfile(defaultProfile)
-    } else {
-      loadAuthFromStorage()
-    }
+    return loginResponse
   }
 
-  const register = (form) => {
-    console.log('Register form:', { ...form })
+  const register = async (form) => {
+    return registerUser({
+      username: form.username,
+      email: form.email,
+      password: form.password,
+    })
   }
 
   const logout = () => {
@@ -83,6 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
     profile.value = { ...defaultProfile }
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem(PROFILE_KEY)
   }
 
   return {

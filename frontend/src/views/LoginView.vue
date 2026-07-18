@@ -1,7 +1,8 @@
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { getApiErrorMessage } from '../api/http'
 import { useAuthStore } from '../stores/authStore'
 
 const router = useRouter()
@@ -12,10 +13,20 @@ const form = reactive({
   password: '',
 })
 
-const handleLogin = () => {
-  authStore.login(form)
-  ElMessage.success('Login successful.')
-  router.push('/home')
+const isSubmitting = ref(false)
+
+const handleLogin = async () => {
+  isSubmitting.value = true
+
+  try {
+    await authStore.login(form)
+    ElMessage.success('Login successful.')
+    router.push('/home')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Login failed.'))
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -38,7 +49,7 @@ const handleLogin = () => {
           <el-input v-model="form.password" type="password" placeholder="Password" show-password />
         </el-form-item>
 
-        <el-button type="primary" native-type="submit">Login</el-button>
+        <el-button type="primary" native-type="submit" :loading="isSubmitting">Login</el-button>
       </el-form>
 
       <p class="form-footer">

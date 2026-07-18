@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.syde.mealplanner.mapper.MealPlanDraftMapper">
+
+    <resultMap id="MealPlanDraftResultMap" type="com.syde.mealplanner.entity.MealPlanDraft">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userRequest" column="user_request"/>
+        <result property="recipes" column="recipes"
+                typeHandler="com.syde.mealplanner.config.typehandler.RecipeSnapshotListJsonTypeHandler"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="MealPlanDraftColumns">
+        id, user_id, user_request, recipes, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="com.syde.mealplanner.entity.MealPlanDraft"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO meal_plan_draft (
+            user_id,
+            user_request,
+            recipes
+        )
+        VALUES (
+            #{userId},
+            #{userRequest},
+            #{recipes,typeHandler=com.syde.mealplanner.config.typehandler.RecipeSnapshotListJsonTypeHandler}
+        )
+    </insert>
+
+    <select id="selectByIdAndUserId" resultMap="MealPlanDraftResultMap">
+        SELECT
+        <include refid="MealPlanDraftColumns"/>
+        FROM meal_plan_draft
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <select id="selectByUserId" resultMap="MealPlanDraftResultMap">
+        SELECT
+        <include refid="MealPlanDraftColumns"/>
+        FROM meal_plan_draft
+        WHERE user_id = #{userId}
+    </select>
+
+    <update id="updateByUserId" parameterType="com.syde.mealplanner.entity.MealPlanDraft">
+        UPDATE meal_plan_draft
+        SET user_request = #{userRequest},
+            recipes = #{recipes,typeHandler=com.syde.mealplanner.config.typehandler.RecipeSnapshotListJsonTypeHandler}
+        WHERE user_id = #{userId}
+    </update>
+
+    <delete id="deleteByUserId">
+        DELETE FROM meal_plan_draft
+        WHERE user_id = #{userId}
+    </delete>
+</mapper>

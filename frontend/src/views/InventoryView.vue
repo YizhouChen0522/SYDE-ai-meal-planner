@@ -1,13 +1,24 @@
 <script setup>
-import { computed, reactive, watchEffect } from 'vue'
+import { computed, onMounted, reactive, watchEffect } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getApiErrorMessage } from '../api/http'
 import { useInventoryStore } from '../stores/inventoryStore'
 
 const inventoryStore = useInventoryStore()
 
-inventoryStore.loadInventoryFromStorage()
-
 const consumeSelections = reactive({})
+
+const loadInventory = async () => {
+  try {
+    await inventoryStore.loadInventory()
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not load inventory.'))
+  }
+}
+
+onMounted(() => {
+  loadInventory()
+})
 
 const getDaysStored = (addedDate) => {
   const added = new Date(`${addedDate}T00:00:00`)
@@ -57,7 +68,7 @@ const getWarningText = (daysStored) => {
   return 'Fresh'
 }
 
-const applyConsumption = (item) => {
+const applyConsumption = async (item) => {
   const percent = consumeSelections[item.id] || 0
 
   if (percent <= 0) {
@@ -65,13 +76,17 @@ const applyConsumption = (item) => {
     return
   }
 
-  inventoryStore.applyConsumption(item.id, percent)
-  ElMessage.success(`${percent}% of ${item.name} marked as consumed.`)
-  consumeSelections[item.id] = 0
+  try {
+    await inventoryStore.applyConsumption(item.id, percent)
+    ElMessage.success(`${percent}% of ${item.name} marked as consumed.`)
+    consumeSelections[item.id] = 0
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not update inventory item.'))
+  }
 }
 
-const deleteItem = (item) => {
-  inventoryStore.removeItem(item.id)
+const deleteItem = async (item) => {
+  await inventoryStore.removeItem(item.id)
   ElMessage.success(`${item.name} removed from inventory.`)
 }
 
@@ -87,9 +102,11 @@ const confirmDeleteItem = async (item) => {
       },
     )
 
-    deleteItem(item)
+    await deleteItem(item)
   } catch (error) {
-    // User cancelled. Do nothing.
+    if (error !== 'cancel') {
+      ElMessage.error(getApiErrorMessage(error, 'Could not delete inventory item.'))
+    }
   }
 }
 </script>
@@ -99,10 +116,19 @@ const confirmDeleteItem = async (item) => {
     <div class="page-heading">
       <p class="eyebrow">Virtual Fridge</p>
       <h1>Inventory</h1>
-      <p>Track mock fridge and pantry items so future meal plans can use what you already have.</p>
+      <p>Track fridge and pantry items so future meal plans can use what you already have.</p>
     </div>
 
-    <el-card class="page-card inventory-table-card" shadow="never">
+    <el-alert
+      v-if="inventoryStore.error"
+      :title="inventoryStore.error"
+      type="error"
+      show-icon
+      class="profile-alert"
+      :closable="false"
+    />
+
+    <el-card class="page-card inventory-table-card" shadow="never" v-loading="inventoryStore.isLoading">
       <template #header>
         <h2>Current Items</h2>
       </template>

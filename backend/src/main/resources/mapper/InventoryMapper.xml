@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.syde.mealplanner.mapper.InventoryMapper">
+
+    <resultMap id="InventoryResultMap" type="com.syde.mealplanner.entity.Inventory">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="foodName" column="food_name"/>
+        <result property="quantity" column="quantity"/>
+        <result property="unit" column="unit"/>
+        <result property="addedDate" column="added_date"/>
+        <result property="reminderDays" column="reminder_days"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="InventoryColumns">
+        id, user_id, food_name, quantity, unit, added_date, reminder_days, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="com.syde.mealplanner.entity.Inventory"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO inventory (user_id, food_name, quantity, unit, added_date, reminder_days)
+        VALUES (#{userId}, #{foodName}, #{quantity}, #{unit}, #{addedDate}, #{reminderDays})
+    </insert>
+
+    <select id="selectByIdAndUserId" resultMap="InventoryResultMap">
+        SELECT
+        <include refid="InventoryColumns"/>
+        FROM inventory
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <select id="selectAllByUserId" resultMap="InventoryResultMap">
+        SELECT
+        <include refid="InventoryColumns"/>
+        FROM inventory
+        WHERE user_id = #{userId}
+        ORDER BY added_date DESC, id DESC
+    </select>
+
+    <select id="selectByUserIdAndFoodNameAndUnit" resultMap="InventoryResultMap">
+        SELECT
+        <include refid="InventoryColumns"/>
+        FROM inventory
+        WHERE user_id = #{userId}
+          AND food_name = #{foodName}
+          AND unit = #{unit}
+    </select>
+
+    <update id="updateQuantityByIdAndUserId">
+        UPDATE inventory
+        SET quantity = #{quantity}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <update id="updateDetailsByIdAndUserId">
+        UPDATE inventory
+        SET quantity = #{quantity},
+            added_date = #{addedDate},
+            reminder_days = #{reminderDays}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <update id="updateQuantityAndAddedDateByIdAndUserId">
+        UPDATE inventory
+        SET quantity = #{quantity},
+            added_date = #{addedDate}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteByIdAndUserId">
+        DELETE FROM inventory
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </delete>
+</mapper>

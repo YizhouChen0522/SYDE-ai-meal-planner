@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.syde.mealplanner.mapper.ShoppingListMapper">
+
+    <resultMap id="ShoppingListResultMap" type="com.syde.mealplanner.entity.ShoppingList">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="foodName" column="food_name"/>
+        <result property="requiredQuantity" column="required_quantity"/>
+        <result property="availableQuantity" column="available_quantity"/>
+        <result property="quantityToBuy" column="quantity_to_buy"/>
+        <result property="unit" column="unit"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="ShoppingListColumns">
+        id, user_id, food_name, required_quantity, available_quantity, quantity_to_buy, unit, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="com.syde.mealplanner.entity.ShoppingList"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO shopping_list (
+            user_id, food_name, required_quantity, available_quantity, quantity_to_buy, unit
+        )
+        VALUES (
+            #{userId}, #{foodName}, #{requiredQuantity}, #{availableQuantity}, #{quantityToBuy}, #{unit}
+        )
+    </insert>
+
+    <select id="selectByIdAndUserId" resultMap="ShoppingListResultMap">
+        SELECT
+        <include refid="ShoppingListColumns"/>
+        FROM shopping_list
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <select id="selectAllByUserId" resultMap="ShoppingListResultMap">
+        SELECT
+        <include refid="ShoppingListColumns"/>
+        FROM shopping_list
+        WHERE user_id = #{userId}
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectByUserIdAndFoodNameAndUnit" resultMap="ShoppingListResultMap">
+        SELECT
+        <include refid="ShoppingListColumns"/>
+        FROM shopping_list
+        WHERE user_id = #{userId}
+          AND food_name = #{foodName}
+          AND unit = #{unit}
+    </select>
+
+    <update id="updateQuantitiesByIdAndUserId">
+        UPDATE shopping_list
+        SET required_quantity = #{requiredQuantity},
+            available_quantity = #{availableQuantity},
+            quantity_to_buy = #{quantityToBuy}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteByIdAndUserId">
+        DELETE FROM shopping_list
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </delete>
+
+    <delete id="deleteAllByUserId">
+        DELETE FROM shopping_list
+        WHERE user_id = #{userId}
+    </delete>
+</mapper>

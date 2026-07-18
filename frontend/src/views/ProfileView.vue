@@ -1,6 +1,8 @@
 <script setup>
-import { reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { getApiErrorMessage } from '../api/http'
+import { getProfile, updateProfile } from '../api/profileApi'
 import { useAuthStore } from '../stores/authStore'
 
 const authStore = useAuthStore()
@@ -8,21 +10,90 @@ const authStore = useAuthStore()
 authStore.loadAuthFromStorage()
 
 const profile = reactive({
-  ...authStore.profile,
+  likedFoods: '',
+  dislikedFoods: '',
+  allergies: '',
   dietaryRestrictions: [...authStore.profile.dietaryRestrictions],
   flavorPreferences: [...authStore.profile.flavorPreferences],
   equipment: [...authStore.profile.equipment],
+  cookingSkill: authStore.profile.cookingSkill,
+  servingSize: authStore.profile.servingSize,
+  maxPrepTime: authStore.profile.maxPrepTime,
+  budget: authStore.profile.budget,
 })
 
-const saveProfile = () => {
+const isLoading = ref(true)
+const isSaving = ref(false)
+const loadError = ref('')
+
+const toInputValue = (items) => {
+  return Array.isArray(items) ? items.join(', ') : ''
+}
+
+const toPreferenceList = (value) => {
+  if (!value) {
+    return []
+  }
+
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+const applyBackendProfile = (backendProfile) => {
+  profile.likedFoods = toInputValue(backendProfile?.likedFoods)
+  profile.dislikedFoods = toInputValue(backendProfile?.dislikedFoods)
+  profile.allergies = toInputValue(backendProfile?.allergies)
+}
+
+const persistLocalProfile = () => {
   authStore.saveProfile({
     ...profile,
     dietaryRestrictions: [...profile.dietaryRestrictions],
     flavorPreferences: [...profile.flavorPreferences],
     equipment: [...profile.equipment],
   })
-  ElMessage.success('Profile saved.')
 }
+
+const loadProfile = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    applyBackendProfile(await getProfile())
+    persistLocalProfile()
+  } catch (error) {
+    loadError.value = getApiErrorMessage(error, 'Could not load profile.')
+    ElMessage.error(loadError.value)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const saveProfile = async () => {
+  isSaving.value = true
+
+  try {
+    const savedProfile = await updateProfile({
+      likedFoods: toPreferenceList(profile.likedFoods),
+      dislikedFoods: toPreferenceList(profile.dislikedFoods),
+      allergies: toPreferenceList(profile.allergies),
+    })
+
+    applyBackendProfile(savedProfile)
+    persistLocalProfile()
+    ElMessage.success('Profile saved.')
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, 'Could not save profile.'))
+  } finally {
+    isSaving.value = false
+  }
+}
+
+onMounted(() => {
+  loadProfile()
+})
 </script>
 
 <template>
@@ -33,7 +104,16 @@ const saveProfile = () => {
       <p>Capture the constraints and tastes the meal planner should consider in later versions.</p>
     </div>
 
-    <el-card class="page-card" shadow="never">
+    <el-alert
+      v-if="loadError"
+      :title="loadError"
+      type="error"
+      show-icon
+      class="profile-alert"
+      :closable="false"
+    />
+
+    <el-card class="page-card" shadow="never" v-loading="isLoading">
       <el-form label-position="top" @submit.prevent="saveProfile">
         <div class="form-grid">
           <el-form-item label="Liked foods">
@@ -103,7 +183,9 @@ const saveProfile = () => {
           </el-form-item>
         </div>
 
-        <el-button type="primary" native-type="submit">Save Profile</el-button>
+        <el-button type="primary" native-type="submit" :loading="isSaving" :disabled="isLoading">
+          Save Profile
+        </el-button>
       </el-form>
     </el-card>
   </section>
