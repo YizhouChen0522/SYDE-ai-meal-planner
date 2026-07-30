@@ -197,6 +197,56 @@ const viewNutrition = (recipe) => {
   selectedNutritionRecipe.value = recipe
 }
 
+const getRecipeIngredients = (recipe) => {
+  return Array.isArray(recipe?.ingredients) ? recipe.ingredients : []
+}
+
+const getRecipeSteps = (recipe) => {
+  return Array.isArray(recipe?.steps) ? recipe.steps : []
+}
+
+const getRecipeNutrition = (recipe) => {
+  return recipe?.nutrition && typeof recipe.nutrition === 'object' ? recipe.nutrition : {}
+}
+
+const formatIngredient = (ingredient) => {
+  if (!ingredient) {
+    return ''
+  }
+
+  const name = ingredient.name || ingredient.foodName || 'Ingredient'
+  const details = [ingredient.quantity, ingredient.unit]
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
+    .join(' ')
+
+  return details ? `${name}: ${details}` : name
+}
+
+const formatStep = (step) => {
+  return String(step || '').replace(/^\s*\d+[\).:-]\s*/, '')
+}
+
+const formatNutritionValue = (nutrient) => {
+  if (!nutrient || typeof nutrient !== 'object') {
+    return 'Not available'
+  }
+
+  const amount = nutrient.amount ?? ''
+  const unit = nutrient.unit ?? ''
+  const dailyValuePercent = nutrient.dailyValuePercent
+  const value = [amount, unit]
+    .filter((item) => item !== null && item !== undefined && String(item).trim() !== '')
+    .join(' ')
+
+  if (dailyValuePercent !== null && dailyValuePercent !== undefined && String(dailyValuePercent).trim() !== '') {
+    return value
+      ? `${value}, ${dailyValuePercent}% of recommended daily intake`
+      : `${dailyValuePercent}% of recommended daily intake`
+  }
+
+  return value || 'Not available'
+}
+
 const addItemToInventory = async () => {
   if (!newInventoryItem.name.trim()) {
     ElMessage.warning('Please enter a food name.')
@@ -371,19 +421,60 @@ const confirmMealPlan = async () => {
       </aside>
     </div>
 
-    <el-dialog v-model="isStepsDialogVisible" :title="selectedStepsRecipe?.title" width="520px">
-      <ol v-if="selectedStepsRecipe" class="dialog-list">
-        <li v-for="step in selectedStepsRecipe.steps" :key="step">{{ step }}</li>
-      </ol>
+    <el-dialog
+      v-model="isStepsDialogVisible"
+      :title="selectedStepsRecipe?.title"
+      width="min(920px, calc(100vw - 32px))"
+      class="recipe-details-dialog"
+    >
+      <div v-if="selectedStepsRecipe" class="recipe-details-layout">
+        <section class="recipe-details-section recipe-details-ingredients" aria-labelledby="recipe-details-ingredients-heading">
+          <h3 id="recipe-details-ingredients-heading">Ingredients</h3>
+          <ul v-if="getRecipeIngredients(selectedStepsRecipe).length" class="dialog-list">
+            <li v-for="ingredient in getRecipeIngredients(selectedStepsRecipe)" :key="`${ingredient.name || ingredient.foodName}-${ingredient.unit || ''}`">
+              {{ formatIngredient(ingredient) }}
+            </li>
+          </ul>
+          <p v-else class="muted-text">No ingredients saved for this recipe.</p>
+        </section>
+
+        <section class="recipe-details-section recipe-details-secondary" aria-labelledby="recipe-details-steps-heading">
+          <h3 id="recipe-details-steps-heading">Preparation Steps</h3>
+          <ol v-if="getRecipeSteps(selectedStepsRecipe).length" class="dialog-list">
+            <li v-for="step in getRecipeSteps(selectedStepsRecipe)" :key="step">{{ formatStep(step) }}</li>
+          </ol>
+          <p v-else class="muted-text">No preparation steps saved for this recipe.</p>
+        </section>
+      </div>
     </el-dialog>
 
-    <el-dialog v-model="isNutritionDialogVisible" :title="selectedNutritionRecipe?.title" width="560px">
-      <div v-if="selectedNutritionRecipe" class="nutrition-list">
-        <p v-for="(nutrient, key) in selectedNutritionRecipe.nutrition" :key="key">
-          <strong>{{ formatNutritionLabel(key) }}:</strong>
-          {{ nutrient.amount }} {{ nutrient.unit }},
-          {{ nutrient.dailyValuePercent }}% of recommended daily intake
-        </p>
+    <el-dialog
+      v-model="isNutritionDialogVisible"
+      :title="selectedNutritionRecipe?.title"
+      width="min(920px, calc(100vw - 32px))"
+      class="recipe-details-dialog"
+    >
+      <div v-if="selectedNutritionRecipe" class="recipe-details-layout">
+        <section class="recipe-details-section recipe-details-ingredients" aria-labelledby="nutrition-details-ingredients-heading">
+          <h3 id="nutrition-details-ingredients-heading">Ingredients</h3>
+          <ul v-if="getRecipeIngredients(selectedNutritionRecipe).length" class="dialog-list">
+            <li v-for="ingredient in getRecipeIngredients(selectedNutritionRecipe)" :key="`${ingredient.name || ingredient.foodName}-${ingredient.unit || ''}`">
+              {{ formatIngredient(ingredient) }}
+            </li>
+          </ul>
+          <p v-else class="muted-text">No ingredients saved for this recipe.</p>
+        </section>
+
+        <section class="recipe-details-section recipe-details-secondary" aria-labelledby="nutrition-details-heading">
+          <h3 id="nutrition-details-heading">Nutrition</h3>
+          <dl v-if="Object.keys(getRecipeNutrition(selectedNutritionRecipe)).length" class="nutrition-list">
+            <div v-for="(nutrient, key) in getRecipeNutrition(selectedNutritionRecipe)" :key="key" class="nutrition-row">
+              <dt>{{ formatNutritionLabel(key) }}</dt>
+              <dd>{{ formatNutritionValue(nutrient) }}</dd>
+            </div>
+          </dl>
+          <p v-else class="muted-text">No nutrition information saved for this recipe.</p>
+        </section>
       </div>
     </el-dialog>
   </section>
