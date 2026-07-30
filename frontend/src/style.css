@@ -402,6 +402,41 @@ li {
   margin-bottom: 20px;
 }
 
+.history-recipe-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.history-recipe-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-recipe-item:last-child {
+  border-bottom: 0;
+}
+
+.history-recipe-item h4 {
+  min-width: 180px;
+  margin: 0;
+  color: #17202b;
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.history-recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .history-dialog-content {
   display: grid;
   gap: 22px;
@@ -459,6 +494,19 @@ li {
   .nutrition-row {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+
+  .history-recipe-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .history-recipe-item h4 {
+    min-width: 0;
+  }
+
+  .history-recipe-actions {
+    justify-content: flex-start;
   }
 }
 

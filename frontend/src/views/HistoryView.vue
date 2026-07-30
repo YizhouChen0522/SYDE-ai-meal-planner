@@ -3,15 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getApiErrorMessage } from '../api/http'
-import { getMealHistory, getMealHistoryById } from '../api/mealHistoryApi'
+import { getMealHistory } from '../api/mealHistoryApi'
 
 const router = useRouter()
 const historyRecords = ref([])
-const selectedRecord = ref(null)
+const selectedRecipe = ref(null)
 const activeDialog = ref('')
 const isLoading = ref(false)
 const loadError = ref('')
-const detailLoadingId = ref(null)
 
 const hasHistory = computed(() => historyRecords.value.length > 0)
 
@@ -22,9 +21,76 @@ const getRecipes = (record) => {
 const nutritionLabels = {
   calories: 'Calories',
   protein: 'Protein',
+  fat: 'Fat',
+  carbohydrates: 'Carbohydrates',
   fiber: 'Fiber',
   vitaminC: 'Vitamin C',
   iron: 'Iron',
+}
+
+const formatNutritionLabel = (key) => {
+  if (!key) {
+    return 'Nutrition'
+  }
+
+  return nutritionLabels[key] || String(key)
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+const getRecipeTitle = (recipe) => {
+  return recipe?.title || 'Untitled recipe'
+}
+
+const getRecipeIngredients = (recipe) => {
+  return Array.isArray(recipe?.ingredients) ? recipe.ingredients : []
+}
+
+const getRecipeSteps = (recipe) => {
+  return Array.isArray(recipe?.steps) ? recipe.steps : []
+}
+
+const getRecipeNutrition = (recipe) => {
+  return recipe?.nutrition && typeof recipe.nutrition === 'object' ? recipe.nutrition : {}
+}
+
+const formatIngredient = (ingredient) => {
+  if (!ingredient) {
+    return ''
+  }
+
+  const name = ingredient.name || ingredient.foodName || 'Ingredient'
+  const details = [ingredient.quantity, ingredient.unit]
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
+    .join(' ')
+
+  return details ? `${name}: ${details}` : name
+}
+
+const formatStep = (step) => {
+  return String(step || '').replace(/^\s*\d+[\).:-]\s*/, '')
+}
+
+const formatNutritionValue = (nutrient) => {
+  if (!nutrient || typeof nutrient !== 'object') {
+    return 'Not available'
+  }
+
+  const amount = nutrient.amount ?? ''
+  const unit = nutrient.unit ?? ''
+  const dailyValuePercent = nutrient.dailyValuePercent
+  const value = [amount, unit]
+    .filter((item) => item !== null && item !== undefined && String(item).trim() !== '')
+    .join(' ')
+
+  if (dailyValuePercent !== null && dailyValuePercent !== undefined && String(dailyValuePercent).trim() !== '') {
+    return value
+      ? `${value}, ${dailyValuePercent}% of recommended daily intake`
+      : `${dailyValuePercent}% of recommended daily intake`
+  }
+
+  return value || 'Not available'
 }
 
 const formatDateTime = (dateValue) => {
@@ -50,21 +116,13 @@ const loadHistory = async () => {
   }
 }
 
-const openDetails = async (record, dialogName) => {
-  detailLoadingId.value = record.id
-
-  try {
-    selectedRecord.value = await getMealHistoryById(record.id)
-    activeDialog.value = dialogName
-  } catch (error) {
-    ElMessage.error(getApiErrorMessage(error, 'Could not load meal history detail.'))
-  } finally {
-    detailLoadingId.value = null
-  }
+const openRecipeDialog = (recipe, dialogName) => {
+  selectedRecipe.value = recipe
+  activeDialog.value = dialogName
 }
 
 const closeDialog = () => {
-  selectedRecord.value = null
+  selectedRecipe.value = null
   activeDialog.value = ''
 }
 
@@ -118,21 +176,27 @@ onMounted(() => {
 
         <div class="history-section">
           <h3>Recipe titles</h3>
-          <ul>
-            <li v-for="recipe in getRecipes(record)" :key="recipe.id">{{ recipe.title }}</li>
-          </ul>
-        </div>
-
-        <div class="recipe-detail-actions">
-          <el-button plain :loading="detailLoadingId === record.id" @click="openDetails(record, 'ingredients')">
-            View Ingredients
-          </el-button>
-          <el-button plain :loading="detailLoadingId === record.id" @click="openDetails(record, 'steps')">
-            View Steps
-          </el-button>
-          <el-button plain :loading="detailLoadingId === record.id" @click="openDetails(record, 'nutrition')">
-            View Nutrition
-          </el-button>
+          <div v-if="getRecipes(record).length" class="history-recipe-list">
+            <div
+              v-for="recipe in getRecipes(record)"
+              :key="recipe.id || getRecipeTitle(recipe)"
+              class="history-recipe-item"
+            >
+              <h4>{{ getRecipeTitle(recipe) }}</h4>
+              <div class="history-recipe-actions">
+                <el-button plain @click="openRecipeDialog(recipe, 'ingredients')">
+                  View Ingredients
+                </el-button>
+                <el-button plain @click="openRecipeDialog(recipe, 'steps')">
+                  View Steps
+                </el-button>
+                <el-button plain @click="openRecipeDialog(recipe, 'nutrition')">
+                  View Nutrition
+                </el-button>
+              </div>
+            </div>
+          </div>
+          <p v-else class="muted-text">No recipes saved for this history item.</p>
         </div>
 
         <div class="history-section">
@@ -155,55 +219,77 @@ onMounted(() => {
 
     <el-dialog
       :model-value="activeDialog === 'ingredients'"
-      :title="selectedRecord ? `Ingredients - ${formatDateTime(selectedRecord.confirmedTime || selectedRecord.createTime)}` : 'Ingredients'"
-      width="640px"
+      :title="selectedRecipe ? getRecipeTitle(selectedRecipe) : 'Ingredients'"
+      width="min(640px, calc(100vw - 32px))"
+      class="recipe-details-dialog"
       @close="closeDialog"
     >
-      <div v-if="selectedRecord" class="history-dialog-content">
-        <section v-for="recipe in getRecipes(selectedRecord)" :key="recipe.id">
-          <h3>{{ recipe.title }}</h3>
-          <ul>
-            <li v-for="ingredient in recipe.ingredients" :key="ingredient.name">
-              {{ ingredient.name }}: {{ ingredient.quantity }} {{ ingredient.unit }}
-            </li>
-          </ul>
-        </section>
+      <div v-if="selectedRecipe" class="recipe-details-section">
+        <h3>Ingredients</h3>
+        <ul v-if="getRecipeIngredients(selectedRecipe).length" class="dialog-list">
+          <li v-for="ingredient in getRecipeIngredients(selectedRecipe)" :key="`${ingredient.name || ingredient.foodName}-${ingredient.unit || ''}`">
+            {{ formatIngredient(ingredient) }}
+          </li>
+        </ul>
+        <p v-else class="muted-text">No ingredients saved for this recipe.</p>
       </div>
     </el-dialog>
 
     <el-dialog
       :model-value="activeDialog === 'steps'"
-      :title="selectedRecord ? `Steps - ${formatDateTime(selectedRecord.confirmedTime || selectedRecord.createTime)}` : 'Steps'"
-      width="640px"
+      :title="selectedRecipe ? getRecipeTitle(selectedRecipe) : 'Steps'"
+      width="min(920px, calc(100vw - 32px))"
+      class="recipe-details-dialog"
       @close="closeDialog"
     >
-      <div v-if="selectedRecord" class="history-dialog-content">
-        <section v-for="recipe in getRecipes(selectedRecord)" :key="recipe.id">
-          <h3>{{ recipe.title }}</h3>
-          <ol>
-            <li v-for="step in recipe.steps" :key="step">{{ step }}</li>
+      <div v-if="selectedRecipe" class="recipe-details-layout">
+        <section class="recipe-details-section recipe-details-ingredients" aria-labelledby="history-steps-ingredients-heading">
+          <h3 id="history-steps-ingredients-heading">Ingredients</h3>
+          <ul v-if="getRecipeIngredients(selectedRecipe).length" class="dialog-list">
+            <li v-for="ingredient in getRecipeIngredients(selectedRecipe)" :key="`${ingredient.name || ingredient.foodName}-${ingredient.unit || ''}`">
+              {{ formatIngredient(ingredient) }}
+            </li>
+          </ul>
+          <p v-else class="muted-text">No ingredients saved for this recipe.</p>
+        </section>
+
+        <section class="recipe-details-section recipe-details-secondary" aria-labelledby="history-steps-heading">
+          <h3 id="history-steps-heading">Preparation Steps</h3>
+          <ol v-if="getRecipeSteps(selectedRecipe).length" class="dialog-list">
+            <li v-for="step in getRecipeSteps(selectedRecipe)" :key="step">{{ formatStep(step) }}</li>
           </ol>
+          <p v-else class="muted-text">No preparation steps saved for this recipe.</p>
         </section>
       </div>
     </el-dialog>
 
     <el-dialog
       :model-value="activeDialog === 'nutrition'"
-      :title="selectedRecord ? `Nutrition - ${formatDateTime(selectedRecord.confirmedTime || selectedRecord.createTime)}` : 'Nutrition'"
-      width="640px"
+      :title="selectedRecipe ? getRecipeTitle(selectedRecipe) : 'Nutrition'"
+      width="min(920px, calc(100vw - 32px))"
+      class="recipe-details-dialog"
       @close="closeDialog"
     >
-      <div v-if="selectedRecord" class="history-dialog-content">
-        <section v-for="recipe in getRecipes(selectedRecord)" :key="recipe.id">
-          <h3>{{ recipe.title }}</h3>
-          <p v-if="!recipe.nutrition" class="muted-text">No nutrition information saved for this recipe.</p>
-          <div v-else class="nutrition-list">
-            <p v-for="(nutrient, key) in recipe.nutrition" :key="key">
-              <strong>{{ nutritionLabels[key] || key }}:</strong>
-              {{ nutrient.amount }} {{ nutrient.unit }},
-              {{ nutrient.dailyValuePercent }}% of recommended daily intake
-            </p>
-          </div>
+      <div v-if="selectedRecipe" class="recipe-details-layout">
+        <section class="recipe-details-section recipe-details-ingredients" aria-labelledby="history-nutrition-ingredients-heading">
+          <h3 id="history-nutrition-ingredients-heading">Ingredients</h3>
+          <ul v-if="getRecipeIngredients(selectedRecipe).length" class="dialog-list">
+            <li v-for="ingredient in getRecipeIngredients(selectedRecipe)" :key="`${ingredient.name || ingredient.foodName}-${ingredient.unit || ''}`">
+              {{ formatIngredient(ingredient) }}
+            </li>
+          </ul>
+          <p v-else class="muted-text">No ingredients saved for this recipe.</p>
+        </section>
+
+        <section class="recipe-details-section recipe-details-secondary" aria-labelledby="history-nutrition-heading">
+          <h3 id="history-nutrition-heading">Nutrition</h3>
+          <dl v-if="Object.keys(getRecipeNutrition(selectedRecipe)).length" class="nutrition-list">
+            <div v-for="(nutrient, key) in getRecipeNutrition(selectedRecipe)" :key="key" class="nutrition-row">
+              <dt>{{ formatNutritionLabel(key) }}</dt>
+              <dd>{{ formatNutritionValue(nutrient) }}</dd>
+            </div>
+          </dl>
+          <p v-else class="muted-text">No nutrition information saved for this recipe.</p>
         </section>
       </div>
     </el-dialog>
