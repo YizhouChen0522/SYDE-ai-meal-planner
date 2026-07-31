@@ -87,23 +87,105 @@ class MealHistoryControllerIntegrationTests {
                         .header("Authorization", bearer(user.token())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data", hasSize(3)))
-                .andExpect(jsonPath("$.data[0].id").value(sameTimeHigherId.getId().longValue()))
-                .andExpect(jsonPath("$.data[1].id").value(sameTimeLowerId.getId().longValue()))
-                .andExpect(jsonPath("$.data[2].id").value(older.getId().longValue()))
-                .andExpect(jsonPath("$.data[0].userRequest").value("same time higher id"))
-                .andExpect(jsonPath("$.data[0].recipes", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].shoppingListSnapshot", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].confirmedTime").exists())
-                .andExpect(jsonPath("$.data[0].createTime").exists())
-                .andExpect(jsonPath("$.data[0].userId").doesNotExist())
-                .andExpect(jsonPath("$.data[*].id", not(hasItem(otherUsersHistory.getId().intValue()))));
+                .andExpect(jsonPath("$.data.records", hasSize(3)))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(5))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(sameTimeHigherId.getId().longValue()))
+                .andExpect(jsonPath("$.data.records[1].id").value(sameTimeLowerId.getId().longValue()))
+                .andExpect(jsonPath("$.data.records[2].id").value(older.getId().longValue()))
+                .andExpect(jsonPath("$.data.records[0].userRequest").value("same time higher id"))
+                .andExpect(jsonPath("$.data.records[0].recipes", hasSize(1)))
+                .andExpect(jsonPath("$.data.records[0].shoppingListSnapshot", hasSize(1)))
+                .andExpect(jsonPath("$.data.records[0].confirmedTime").exists())
+                .andExpect(jsonPath("$.data.records[0].createTime").exists())
+                .andExpect(jsonPath("$.data.records[0].userId").doesNotExist())
+                .andExpect(jsonPath("$.data.records[*].id", not(hasItem(otherUsersHistory.getId().intValue()))));
 
         mockMvc.perform(get("/api/meal-history")
                         .header("Authorization", bearer(emptyUser.token())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data", hasSize(0)));
+                .andExpect(jsonPath("$.data.records", hasSize(0)))
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.totalPages").value(0));
+    }
+
+    @Test
+    void historyListSupportsServerSidePagination() throws Exception {
+        TestUser user = registerAndLogin("history-page-user-" + UUID.randomUUID());
+        TestUser otherUser = registerAndLogin("history-page-other-" + UUID.randomUUID());
+        LocalDateTime baseTime = LocalDateTime.of(2026, 7, 18, 10, 0);
+
+        for (int index = 1; index <= 12; index++) {
+            insertHistory(
+                    user.id(),
+                    "page request " + index,
+                    7000L + index,
+                    baseTime.plusMinutes(index));
+        }
+        MealHistory otherUsersHistory = insertHistory(
+                otherUser.id(),
+                "other user page request",
+                8001L,
+                baseTime.plusDays(1));
+
+        mockMvc.perform(get("/api/meal-history")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .header("Authorization", bearer(user.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records", hasSize(10)))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.total").value(12))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.records[0].userRequest").value("page request 12"))
+                .andExpect(jsonPath("$.data.records[9].userRequest").value("page request 3"))
+                .andExpect(jsonPath("$.data.records[*].id", not(hasItem(otherUsersHistory.getId().intValue()))));
+
+        mockMvc.perform(get("/api/meal-history")
+                        .param("page", "2")
+                        .param("size", "10")
+                        .header("Authorization", bearer(user.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records", hasSize(2)))
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.total").value(12))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.records[0].userRequest").value("page request 2"))
+                .andExpect(jsonPath("$.data.records[1].userRequest").value("page request 1"));
+
+        mockMvc.perform(get("/api/meal-history")
+                        .param("page", "3")
+                        .param("size", "10")
+                        .header("Authorization", bearer(user.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records", hasSize(0)))
+                .andExpect(jsonPath("$.data.page").value(3))
+                .andExpect(jsonPath("$.data.total").value(12))
+                .andExpect(jsonPath("$.data.totalPages").value(2));
+    }
+
+    @Test
+    void historyListRejectsInvalidPaginationInputs() throws Exception {
+        TestUser user = registerAndLogin("history-invalid-page-" + UUID.randomUUID());
+
+        mockMvc.perform(get("/api/meal-history")
+                        .param("page", "0")
+                        .header("Authorization", bearer(user.token())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Page must be at least 1"));
+
+        mockMvc.perform(get("/api/meal-history")
+                        .param("size", "51")
+                        .header("Authorization", bearer(user.token())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Page size must be between 1 and 50"));
     }
 
     @Test

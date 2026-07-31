@@ -8,11 +8,23 @@ import { getMealHistory } from '../api/mealHistoryApi'
 const router = useRouter()
 const historyRecords = ref([])
 const selectedRecipe = ref(null)
-const activeDialog = ref('')
 const isLoading = ref(false)
 const loadError = ref('')
+const currentPage = ref(1)
+const pageSize = ref(5)
+const totalRecords = ref(0)
+const totalPages = ref(0)
 
 const hasHistory = computed(() => historyRecords.value.length > 0)
+const hasAnyHistory = computed(() => totalRecords.value > 0)
+const isDetailsDialogVisible = computed({
+  get: () => Boolean(selectedRecipe.value),
+  set: (value) => {
+    if (!value) {
+      selectedRecipe.value = null
+    }
+  },
+})
 
 const getRecipes = (record) => {
   return Array.isArray(record?.recipes) ? record.recipes : []
@@ -101,14 +113,20 @@ const formatDateTime = (dateValue) => {
   return new Date(dateValue).toLocaleString()
 }
 
-const loadHistory = async () => {
+const loadHistory = async (page = currentPage.value) => {
   isLoading.value = true
   loadError.value = ''
 
   try {
-    historyRecords.value = await getMealHistory()
+    const response = await getMealHistory({ page, size: pageSize.value })
+    historyRecords.value = Array.isArray(response?.records) ? response.records : []
+    currentPage.value = response?.page || page
+    totalRecords.value = response?.total || 0
+    totalPages.value = response?.totalPages || 0
   } catch (error) {
     historyRecords.value = []
+    totalRecords.value = 0
+    totalPages.value = 0
     loadError.value = getApiErrorMessage(error, 'Could not load meal history.')
     ElMessage.error(loadError.value)
   } finally {
@@ -116,14 +134,21 @@ const loadHistory = async () => {
   }
 }
 
-const openRecipeDialog = (recipe, dialogName) => {
+const openRecipeDialog = (recipe) => {
   selectedRecipe.value = recipe
-  activeDialog.value = dialogName
 }
 
 const closeDialog = () => {
   selectedRecipe.value = null
-  activeDialog.value = ''
+}
+
+const handlePageChange = async (page) => {
+  if (page === currentPage.value || isLoading.value) {
+    return
+  }
+
+  await loadHistory(page)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 onMounted(() => {
@@ -148,101 +173,93 @@ onMounted(() => {
       :closable="false"
     />
 
-    <el-empty v-if="!isLoading && !hasHistory" description="No confirmed meal plans yet.">
+    <el-empty v-if="!isLoading && !hasAnyHistory" description="No confirmed meal plans yet.">
       <el-button type="primary" @click="router.push('/home')">Open Home</el-button>
     </el-empty>
 
-    <div v-else v-loading="isLoading" class="history-list">
-      <el-card
-        v-for="record in historyRecords"
-        :key="record.id"
-        class="page-card history-card"
-        shadow="never"
-      >
-        <template #header>
-          <div class="history-card-header">
-            <div>
-              <h2>{{ formatDateTime(record.confirmedTime || record.createTime) }}</h2>
-              <p>{{ getRecipes(record).length }} recipes confirmed</p>
+    <div v-else v-loading="isLoading">
+      <div class="history-list">
+        <el-card
+          v-for="record in historyRecords"
+          :key="record.id"
+          class="page-card history-card"
+          shadow="never"
+        >
+          <template #header>
+            <div class="history-card-header">
+              <div>
+                <h2>{{ formatDateTime(record.confirmedTime || record.createTime) }}</h2>
+                <p>{{ getRecipes(record).length }} recipes confirmed</p>
+              </div>
+              <el-tag type="success">Confirmed</el-tag>
             </div>
-            <el-tag type="success">Confirmed</el-tag>
+          </template>
+
+          <div class="history-section">
+            <h3>Desired food input</h3>
+            <p class="muted-text">{{ record.userRequest || 'No request entered.' }}</p>
           </div>
-        </template>
 
-        <div class="history-section">
-          <h3>Desired food input</h3>
-          <p class="muted-text">{{ record.userRequest || 'No request entered.' }}</p>
-        </div>
-
-        <div class="history-section">
-          <h3>Recipe titles</h3>
-          <div v-if="getRecipes(record).length" class="history-recipe-list">
-            <div
-              v-for="recipe in getRecipes(record)"
-              :key="recipe.id || getRecipeTitle(recipe)"
-              class="history-recipe-item"
-            >
-              <h4>{{ getRecipeTitle(recipe) }}</h4>
-              <div class="history-recipe-actions">
-                <el-button plain @click="openRecipeDialog(recipe, 'ingredients')">
-                  View Ingredients
-                </el-button>
-                <el-button plain @click="openRecipeDialog(recipe, 'steps')">
-                  View Steps
-                </el-button>
-                <el-button plain @click="openRecipeDialog(recipe, 'nutrition')">
-                  View Nutrition
-                </el-button>
+          <div class="history-section">
+            <h3>Recipe titles</h3>
+            <div v-if="getRecipes(record).length" class="history-recipe-list">
+              <div
+                v-for="recipe in getRecipes(record)"
+                :key="recipe.id || getRecipeTitle(recipe)"
+                class="history-recipe-item"
+              >
+                <h4>{{ getRecipeTitle(recipe) }}</h4>
+                <div class="history-recipe-actions">
+                  <el-button plain @click="openRecipeDialog(recipe)">
+                    View Details
+                  </el-button>
+                </div>
               </div>
             </div>
+            <p v-else class="muted-text">No recipes saved for this history item.</p>
           </div>
-          <p v-else class="muted-text">No recipes saved for this history item.</p>
-        </div>
 
-        <div class="history-section">
-          <h3>Shopping List Generated</h3>
-          <el-table
-            v-if="record.shoppingListSnapshot?.length"
-            :data="record.shoppingListSnapshot"
-            class="inventory-table"
-          >
-            <el-table-column prop="name" label="Ingredient name" min-width="150" />
-            <el-table-column prop="requiredQuantity" label="Required quantity" min-width="145" />
-            <el-table-column prop="availableFromInventory" label="Available inventory quantity" min-width="210" />
-            <el-table-column prop="quantityToBuy" label="Quantity to buy" min-width="140" />
-            <el-table-column prop="unit" label="Unit" min-width="80" />
-          </el-table>
-          <p v-else class="muted-text">No shopping list snapshot saved for this plan.</p>
-        </div>
-      </el-card>
+          <div class="history-section">
+            <h3>Shopping List Generated</h3>
+            <el-table
+              v-if="record.shoppingListSnapshot?.length"
+              :data="record.shoppingListSnapshot"
+              class="inventory-table"
+            >
+              <el-table-column prop="name" label="Ingredient name" min-width="150" />
+              <el-table-column prop="requiredQuantity" label="Required quantity" min-width="145" />
+              <el-table-column prop="availableFromInventory" label="Available inventory quantity" min-width="210" />
+              <el-table-column prop="quantityToBuy" label="Quantity to buy" min-width="140" />
+              <el-table-column prop="unit" label="Unit" min-width="80" />
+            </el-table>
+            <p v-else class="muted-text">No shopping list snapshot saved for this plan.</p>
+          </div>
+        </el-card>
+      </div>
+
+      <el-empty v-if="!isLoading && hasAnyHistory && !hasHistory" description="No history records on this page." />
+
+      <div v-if="hasAnyHistory" class="history-pagination">
+        <el-pagination
+          background
+          layout="prev, pager, next, total"
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :total="totalRecords"
+          :disabled="isLoading"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <el-dialog
-      :model-value="activeDialog === 'ingredients'"
-      :title="selectedRecipe ? getRecipeTitle(selectedRecipe) : 'Ingredients'"
-      width="min(640px, calc(100vw - 32px))"
+      v-model="isDetailsDialogVisible"
+      :title="selectedRecipe ? getRecipeTitle(selectedRecipe) : 'Recipe Details'"
+      width="min(1180px, calc(100vw - 32px))"
       class="recipe-details-dialog"
       @close="closeDialog"
     >
-      <div v-if="selectedRecipe" class="recipe-details-section">
-        <h3>Ingredients</h3>
-        <ul v-if="getRecipeIngredients(selectedRecipe).length" class="dialog-list">
-          <li v-for="ingredient in getRecipeIngredients(selectedRecipe)" :key="`${ingredient.name || ingredient.foodName}-${ingredient.unit || ''}`">
-            {{ formatIngredient(ingredient) }}
-          </li>
-        </ul>
-        <p v-else class="muted-text">No ingredients saved for this recipe.</p>
-      </div>
-    </el-dialog>
-
-    <el-dialog
-      :model-value="activeDialog === 'steps'"
-      :title="selectedRecipe ? getRecipeTitle(selectedRecipe) : 'Steps'"
-      width="min(920px, calc(100vw - 32px))"
-      class="recipe-details-dialog"
-      @close="closeDialog"
-    >
-      <div v-if="selectedRecipe" class="recipe-details-layout">
+      <div v-if="selectedRecipe" class="recipe-details-layout recipe-details-layout-three">
         <section class="recipe-details-section recipe-details-ingredients" aria-labelledby="history-steps-ingredients-heading">
           <h3 id="history-steps-ingredients-heading">Ingredients</h3>
           <ul v-if="getRecipeIngredients(selectedRecipe).length" class="dialog-list">
@@ -259,26 +276,6 @@ onMounted(() => {
             <li v-for="step in getRecipeSteps(selectedRecipe)" :key="step">{{ formatStep(step) }}</li>
           </ol>
           <p v-else class="muted-text">No preparation steps saved for this recipe.</p>
-        </section>
-      </div>
-    </el-dialog>
-
-    <el-dialog
-      :model-value="activeDialog === 'nutrition'"
-      :title="selectedRecipe ? getRecipeTitle(selectedRecipe) : 'Nutrition'"
-      width="min(920px, calc(100vw - 32px))"
-      class="recipe-details-dialog"
-      @close="closeDialog"
-    >
-      <div v-if="selectedRecipe" class="recipe-details-layout">
-        <section class="recipe-details-section recipe-details-ingredients" aria-labelledby="history-nutrition-ingredients-heading">
-          <h3 id="history-nutrition-ingredients-heading">Ingredients</h3>
-          <ul v-if="getRecipeIngredients(selectedRecipe).length" class="dialog-list">
-            <li v-for="ingredient in getRecipeIngredients(selectedRecipe)" :key="`${ingredient.name || ingredient.foodName}-${ingredient.unit || ''}`">
-              {{ formatIngredient(ingredient) }}
-            </li>
-          </ul>
-          <p v-else class="muted-text">No ingredients saved for this recipe.</p>
         </section>
 
         <section class="recipe-details-section recipe-details-secondary" aria-labelledby="history-nutrition-heading">

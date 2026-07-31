@@ -335,6 +335,10 @@ li {
   align-items: start;
 }
 
+.recipe-details-layout-three {
+  grid-template-columns: minmax(190px, 0.27fr) minmax(0, 0.45fr) minmax(190px, 0.28fr);
+}
+
 .recipe-details-section {
   min-width: 0;
 }
@@ -437,6 +441,12 @@ li {
   gap: 8px;
 }
 
+.history-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
 .history-dialog-content {
   display: grid;
   gap: 22px;
@@ -482,6 +492,10 @@ li {
   .recipe-details-layout {
     grid-template-columns: 1fr;
     gap: 22px;
+  }
+
+  .recipe-details-layout-three {
+    grid-template-columns: 1fr;
   }
 
   .recipe-details-secondary {
